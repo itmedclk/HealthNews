@@ -1,8 +1,8 @@
 {
-  "/aph/eye": 2,
-  "/aph/muscle": 4,
+  "/aph/eye": 0,
+  "/aph/muscle": 0,
   "/aph/Utf": 0,
-  "/aph/WBM": 0,
-  "/aph/blood_sugar": 2,
-  "/aph/blood_pressure": 1
+  "/aph/WBM": 2,
+  "/aph/blood_sugar": 0,
+  "/aph/blood_pressure": 0
 }
