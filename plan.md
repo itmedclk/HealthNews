@@ -85,8 +85,8 @@ Rules:
 `Brands.csv` columns:
 - `brand_name`
 - `product_info_csv_path`
-- `target_platforms` (Postly target platforms or channel IDs)
-- `workspace_ids` (Postly workspace IDs)
+- `target_platforms` (required; Postly target platforms or channel IDs)
+- `workspace_ids` (required; Postly workspace IDs; fallback to POSTLY_WORKSPACE_IDS)
 - `rss_sources` (optional pipe-delimited override list)
 
 Each brand points to its product catalog (defaulting to `Product_Info.csv` when blank).
@@ -249,7 +249,7 @@ article_history(
 - `OPENAI_API_KEY`
 - `POSTLY_API_KEY`
 - `POSTLY_BASE_URL` (optional, default to `https://openapi.postly.ai`)
-- `POSTLY_WORKSPACE` or any required workspace ID
+- `POSTLY_WORKSPACE_IDS` (fallback for brand workspace IDs)
 - `DROPBOX_ACCESS_TOKEN`
 - `DROPBOX_REFRESH_TOKEN`
 - `DROPBOX_CLIENT_ID`
@@ -269,6 +269,8 @@ article_history(
 7. Logging + schedule trigger
 
 ---
+
+
 
 
 

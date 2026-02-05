@@ -32,6 +32,7 @@ class Settings:
     novita_api_key: str = os.getenv("NOVITA_API_KEY", "")
     postly_api_key: str = os.getenv("POSTLY_API_KEY", "")
     postly_base_url: str = os.getenv("POSTLY_BASE_URL", "https://openapi.postly.ai")
+    postly_workspace_ids: str = os.getenv("POSTLY_WORKSPACE_IDS", "")
     local_timezone: str = os.getenv("LOCAL_TIMEZONE", "America/Los_Angeles")
     schedule_hour: int = int(os.getenv("SCHEDULE_HOUR", "5"))
     schedule_minute: int = int(os.getenv("SCHEDULE_MINUTE", "0"))
@@ -53,8 +54,8 @@ class Settings:
             "sexual health",
         ]
     )
-    product_info_csv_path: str = os.getenv("PRODUCT_INFO_CSV_PATH", "Product_Info.csv")
-    brands_csv_path: str = os.getenv("BRANDS_CSV_PATH", "Brands.csv")
+    product_info_csv_path: str = os.getenv("PRODUCT_INFO_CSV_PATH", "info/Product_Info.csv")
+    brands_csv_path: str = os.getenv("BRANDS_CSV_PATH", "info/Brands.csv")
     dropbox_access_token: str = os.getenv("DROPBOX_ACCESS_TOKEN", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     novita_base_url: str = os.getenv("NOVITA_BASE_URL", "https://api.novita.ai/openai")

@@ -97,6 +97,33 @@ def _process_entry(entry: Dict, products: list, brand: Dict) -> Tuple[bool, str]
         )
         return False, "Missing POSTLY_API_KEY"
 
+    target_platforms = brand.get("target_platforms", "")
+    workspace_ids = brand.get("workspace_ids", "") or SETTINGS.postly_workspace_ids
+    if not target_platforms:
+        print("[pipeline] Missing target platforms.")
+        _log_and_continue(entry, product, caption, "failed", "Missing target platforms")
+        record_article_check(
+            SETTINGS.sqlite_path,
+            brand.get("brand_name", ""),
+            entry.get("title", ""),
+            entry.get("url", ""),
+            "failed",
+            "Missing target platforms",
+        )
+        return False, "Missing target platforms"
+    if not workspace_ids:
+        print("[pipeline] Missing workspace IDs.")
+        _log_and_continue(entry, product, caption, "failed", "Missing workspace IDs")
+        record_article_check(
+            SETTINGS.sqlite_path,
+            brand.get("brand_name", ""),
+            entry.get("title", ""),
+            entry.get("url", ""),
+            "failed",
+            "Missing workspace IDs",
+        )
+        return False, "Missing workspace IDs"
+
     try:
         create_post(
             SETTINGS.postly_base_url,
@@ -104,8 +131,8 @@ def _process_entry(entry: Dict, products: list, brand: Dict) -> Tuple[bool, str]
             caption,
             product.get("product_image_url", ""),
             _schedule_iso(),
-            target_platforms=brand.get("target_platforms", ""),
-            workspace_ids=brand.get("workspace_ids", ""),
+            target_platforms=target_platforms,
+            workspace_ids=workspace_ids,
         )
         _log_and_continue(entry, product, caption, "posted", "")
         record_article_check(
