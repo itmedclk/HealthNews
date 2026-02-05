@@ -1,11 +1,11 @@
 from pprint import pprint
 
-from apherb_catalog import load_brands_from_csv, load_products_from_csv, parse_brand_rss_sources
-from caption_writer import generate_caption
-from config import SETTINGS
-from matcher import select_best_product
-from rss_ingest import ingest_rss
-from safety_filter import safety_filter
+from pipeline.caption_writer import generate_caption
+from pipeline.matcher import select_best_product
+from pipeline.safety_filter import safety_filter
+from services.apherb_catalog import load_brands_from_csv, load_products_from_csv, parse_brand_rss_sources
+from services.rss_ingest import ingest_rss
+from utils.config import SETTINGS
 
 
 def main() -> None:

@@ -39,16 +39,27 @@ If an item fails safety or matching, **skip to next item**.
 ```
 /project-root
 ├── main.py                # Daily execution entry point
-├── config.py              # Settings and constants
-├── rss_ingest.py          # RSS feed ingestion
-├── apherb_catalog.py      # AP Herb product CSV loader + Dropbox images
-├── safety_filter.py       # Topic and claim filtering (AI-assisted)
-├── matcher.py             # Product matching logic (AI-assisted)
-├── caption_writer.py      # Caption generation
-├── postly_client.py       # Postly.ai API integration
-├── logger.py              # Logging and persistence
+├── services/              # External integrations + catalog loading
+│   ├── apherb_catalog.py
+│   ├── postly_client.py
+│   └── rss_ingest.py
+├── pipeline/              # Pipeline logic + AI filters
+│   ├── caption_writer.py
+│   ├── matcher.py
+│   ├── preview_post.py
+│   ├── safety_filter.py
+│   └── test_apherb_scraper.py
+├── utils/                 # Shared helpers + settings
+│   ├── config.py
+│   ├── dropbox_auth.py
+│   └── logger.py
 └── requirements.txt
 ```
+
+Note on package files:
+- Python 3.3+ supports implicit namespace packages, so __init__.py files are not strictly required.
+- If you plan to use static analysis tools, IDE autocomplete, or package-level imports,
+  add empty __init__.py files in services/, pipeline/, and utils/ for clarity.
 
 ---
 
@@ -240,6 +251,9 @@ article_history(
 - `POSTLY_BASE_URL` (optional, default to `https://openapi.postly.ai`)
 - `POSTLY_WORKSPACE` or any required workspace ID
 - `DROPBOX_ACCESS_TOKEN`
+- `DROPBOX_REFRESH_TOKEN`
+- `DROPBOX_CLIENT_ID`
+- `DROPBOX_CLIENT_SECRET`
 - `PRODUCT_INFO_CSV_PATH`
 - `BRANDS_CSV_PATH`
 
@@ -255,4 +269,7 @@ article_history(
 7. Logging + schedule trigger
 
 ---
+
+
+
 

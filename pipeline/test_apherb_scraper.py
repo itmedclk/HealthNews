@@ -1,7 +1,7 @@
 from pprint import pprint
 
-from apherb_catalog import load_products_from_csv
-from config import SETTINGS
+from services.apherb_catalog import load_products_from_csv
+from utils.config import SETTINGS
 
 
 def main() -> None:

@@ -1,10 +1,12 @@
 from datetime import datetime
 from typing import Dict, Tuple
 
-from apherb_catalog import derive_brand_topics, load_brands_from_csv, load_products_from_csv, parse_brand_rss_sources
-from caption_writer import generate_caption
-from config import SETTINGS
-from logger import (
+from pipeline.caption_writer import generate_caption
+from services.apherb_catalog import derive_brand_topics, load_brands_from_csv, load_products_from_csv, parse_brand_rss_sources
+from services.rss_ingest import ingest_rss
+from services.postly_client import create_post
+from utils.config import SETTINGS
+from utils.logger import (
     append_sheet_log,
     article_seen,
     build_log_payload,
@@ -13,10 +15,8 @@ from logger import (
     record_article_check,
     upsert_brand_topics,
 )
-from matcher import select_best_product
-from postly_client import create_post
-from rss_ingest import ingest_rss
-from safety_filter import safety_filter
+from pipeline.matcher import select_best_product
+from pipeline.safety_filter import safety_filter
 
 
 # Build the ISO timestamp for today's scheduled post time.

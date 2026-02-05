@@ -1,6 +1,6 @@
 from typing import Dict, List, Tuple
 
-from config import SETTINGS
+from utils.config import SETTINGS
 from openai import OpenAI
 
 

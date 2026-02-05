@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Dict
 
-from config import SETTINGS
+from utils.config import SETTINGS
 
 
 # Count words in a caption for length enforcement.

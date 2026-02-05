@@ -3,7 +3,7 @@ from typing import Dict, List, Tuple
 
 from openai import OpenAI
 
-from config import SETTINGS
+from utils.config import SETTINGS
 
 
 # Tokenize text into keywords for similarity scoring.

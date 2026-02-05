@@ -5,7 +5,8 @@ from typing import Dict, List, Optional
 
 import requests
 
-from config import SETTINGS
+from utils.config import SETTINGS
+from utils.dropbox_auth import get_dropbox_access_token
 
 
 ROTATION_STATE_PATH = "data/image_rotation.json"
@@ -18,10 +19,11 @@ def _is_image_file(name: str) -> bool:
 
 def _list_dropbox_files(folder_path: str) -> List[Dict]:
     """List files in a Dropbox folder using the API."""
-    if not SETTINGS.dropbox_access_token:
+    access_token = SETTINGS.dropbox_access_token or get_dropbox_access_token()
+    if not access_token:
         return []
     url = "https://api.dropboxapi.com/2/files/list_folder"
-    headers = {"Authorization": f"Bearer {SETTINGS.dropbox_access_token}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
     response = requests.post(url, headers=headers, json={"path": folder_path}, timeout=30)
     if response.status_code >= 400:
         raise RuntimeError(f"Dropbox list_folder failed ({response.status_code}): {response.text}")
@@ -30,10 +32,11 @@ def _list_dropbox_files(folder_path: str) -> List[Dict]:
 
 def _create_dropbox_shared_link(path: str) -> Optional[str]:
     """Create a shared link for a Dropbox file and return a direct-download URL."""
-    if not SETTINGS.dropbox_access_token:
+    access_token = SETTINGS.dropbox_access_token or get_dropbox_access_token()
+    if not access_token:
         return None
     url = "https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings"
-    headers = {"Authorization": f"Bearer {SETTINGS.dropbox_access_token}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
     response = requests.post(url, headers=headers, json={"path": path}, timeout=30)
     if response.status_code == 409:
         # If link exists already, fetch it instead.
@@ -81,7 +84,7 @@ def _save_rotation_state(state: Dict[str, int]) -> None:
 
 def _resolve_dropbox_image(folder_path: str) -> Dict[str, str]:
     """Pick the next image in rotation and return URL + status info."""
-    if not SETTINGS.dropbox_access_token:
+    if not (SETTINGS.dropbox_access_token or get_dropbox_access_token()):
         return {"image_url": "", "status": "missing_dropbox_token"}
     if not folder_path:
         return {"image_url": "", "status": "missing_image_path"}

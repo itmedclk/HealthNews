@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Added Dropbox refresh-token helper and reorganized modules into services/pipeline/utils folders.
 - Added article history table and skip logic to avoid re-checking already processed articles.
 - Added multi-brand support via Brands.csv, per-brand RSS overrides, and Postly target/workspace routing.
 - Persisted brand topic metadata (derived from product categories/tags) into SQLite.
