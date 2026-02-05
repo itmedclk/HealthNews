@@ -14,15 +14,13 @@ def fetch_rss_entries(sources: List[str]) -> List[Dict]:
             published = None
             if entry.get("published_parsed"):
                 published = datetime(*entry.published_parsed[:6])
-            entries.append(
-                {
-                    "source": source,
-                    "title": entry.get("title", ""),
-                    "url": entry.get("link", ""),
-                    "summary": entry.get("summary", ""),
-                    "published": published,
-                }
-            )
+            entries.append({
+                "source": source,
+                "title": entry.get("title", ""),
+                "article_url": entry.get("link", ""),
+                "summary": entry.get("summary", ""),
+                "published": published,
+            })
     return entries
 
 
@@ -32,7 +30,8 @@ def dedupe_entries(entries: List[Dict]) -> List[Dict]:
     seen = set()
     unique_entries = []
     for entry in entries:
-        key = (entry.get("title", "").strip().lower(), entry.get("url", "").strip())
+        key = (entry.get("title", "").strip().lower(), entry.get("url",
+                                                                 "").strip())
         if key in seen:
             continue
         seen.add(key)
@@ -43,7 +42,9 @@ def dedupe_entries(entries: List[Dict]) -> List[Dict]:
 # Sort RSS entries so newest items are processed first.
 def sort_entries_newest(entries: List[Dict]) -> List[Dict]:
     """Sort entries so the most recent items come first."""
-    return sorted(entries, key=lambda e: e.get("published") or datetime.min, reverse=True)
+    return sorted(entries,
+                  key=lambda e: e.get("published") or datetime.min,
+                  reverse=True)
 
 
 # Orchestrate fetching, deduping, and sorting of RSS entries.

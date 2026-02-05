@@ -51,3 +51,7 @@ data/*.sqlite
 Thumbs.db
 
 .replit
+
+# Runtime / generated data
+data/image_rotation.json
+data/logs.sqlite

@@ -3,10 +3,10 @@ from typing import Dict
 from openai import OpenAI
 from utils.config import SETTINGS
 
-
 # -------------------------
 # Helpers
 # -------------------------
+
 
 def _count_words(text: str) -> int:
     return len(text.split())
@@ -50,12 +50,13 @@ STRUCTURE (follow in order, do NOT label sections):
 4) A line starting with exactly: Learn more:
    followed by the product URL
 5) A line starting with exactly: Source:
-   followed by the article URL (no date)
+   followed by the original article URL (no date)
 6) End with exactly 10 relevant hashtags (include brand + product hashtags)
 
 ARTICLE:
 Title: {entry.get("title", "")}
 Summary: {entry.get("summary", "")}
+Article URL: {entry.get("article_url", "")}
 
 PRODUCT:
 Brand: {entry.get("brand_name", "")}
@@ -72,18 +73,27 @@ Write the caption now.
 # Main caption generator
 # -------------------------
 
+
 def generate_caption(entry: Dict, product: Dict) -> str:
+
+    # ---- Hard guards (fail fast) ----
+    assert entry.get("article_url"), "Missing article URL"
+    assert product.get("product_url"), "Missing product URL"
     """
     Generate an Instagram-ready caption using OpenAI,
     then enforce length and formatting constraints.
     """
-    client = OpenAI(api_key=SETTINGS.novita_api_key, base_url=SETTINGS.novita_base_url)
+    client = OpenAI(api_key=SETTINGS.novita_api_key,
+                    base_url=SETTINGS.novita_base_url)
 
     prompt = _build_caption_prompt(entry, product)
 
     response = client.chat.completions.create(
         model=SETTINGS.novita_model,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{
+            "role": "user",
+            "content": prompt
+        }],
         temperature=0.6,
     )
 
@@ -114,6 +124,6 @@ def generate_caption(entry: Dict, product: Dict) -> str:
     if word_count < SETTINGS.caption_min_words:
         caption += " This content is shared for educational purposes only."
     elif word_count > SETTINGS.caption_max_words:
-        caption = " ".join(caption.split()[: SETTINGS.caption_max_words])
+        caption = " ".join(caption.split()[:SETTINGS.caption_max_words])
 
     return caption
