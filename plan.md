@@ -48,7 +48,8 @@ If an item fails safety or matching, **skip to next item**.
 │   ├── matcher.py
 │   ├── preview_post.py
 │   ├── safety_filter.py
-│   └── test_apherb_scraper.py
+│   ├── test_apherb_scraper.py
+│   └── test_post_immediate.py
 ├── utils/                 # Shared helpers + settings
 │   ├── config.py
 │   ├── dropbox_auth.py
@@ -88,6 +89,7 @@ Rules:
 - `target_platforms` (required; Postly target platforms or channel IDs)
 - `workspace_ids` (required; Postly workspace IDs; fallback to POSTLY_WORKSPACE_IDS)
 - `rss_sources` (optional pipe-delimited override list)
+- `tags` (required; pipe-delimited hashtags appended to captions)
 
 Each brand points to its product catalog (defaulting to `Product_Info.csv` when blank).
 
@@ -152,9 +154,9 @@ Prompt the model to label:
 2) Summary (2–3 sentences)
 3) Why it matters (1 sentence)
 4) Product tie-in (1–2 sentences, educational only)
-5) Source line: `Source: Publisher, Month Day, Year`
+5) Source line: `Source: <article URL>` (no date)
 6) Product link
-7) 8 hashtags
+7) 10 hashtags (include brand + product hashtags)
 
 **Constraints**:
 - 100–150 words
@@ -233,6 +235,24 @@ article_history(
 )
 ```
 
+**Post log table**:
+- `post_log` tracks scheduled and posted posts per brand.
+
+Schema (SQLite):
+```
+post_log(
+  id INTEGER PRIMARY KEY,
+  brand_name TEXT,
+  article_title TEXT,
+  article_url TEXT,
+  image_url TEXT,
+  caption TEXT,
+  scheduled_time TEXT,
+  posted_time TEXT,
+  status TEXT
+)
+```
+
 ---
 
 ## 12) Scheduling in Replit
@@ -242,6 +262,11 @@ article_history(
 
 **Option B**:
 - internal scheduler loop (less reliable)
+
+**Runtime scheduling behavior**:
+- On startup, for each brand:
+  - If no posted post today: schedule immediately if past 5 AM; otherwise schedule at 5 AM.
+  - If posted post today: ensure a post is scheduled for tomorrow at 5 AM.
 
 ---
 
@@ -269,6 +294,12 @@ article_history(
 7. Logging + schedule trigger
 
 ---
+
+
+
+
+
+
 
 
 

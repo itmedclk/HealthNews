@@ -63,6 +63,21 @@ def init_db(sqlite_path: str) -> None:
             )
             """
         )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS post_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                brand_name TEXT,
+                article_title TEXT,
+                article_url TEXT,
+                image_url TEXT,
+                caption TEXT,
+                scheduled_time TEXT,
+                posted_time TEXT,
+                status TEXT
+            )
+            """
+        )
         conn.commit()
 
 
@@ -157,6 +172,83 @@ def record_article_check(
             ),
         )
         conn.commit()
+
+
+def log_scheduled_post(sqlite_path: str, payload: Dict) -> None:
+    """Insert a scheduled post record into post_log."""
+    _ensure_dir(sqlite_path)
+    with sqlite3.connect(sqlite_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO post_log (
+                brand_name,
+                article_title,
+                article_url,
+                image_url,
+                caption,
+                scheduled_time,
+                posted_time,
+                status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                payload.get("brand_name"),
+                payload.get("article_title"),
+                payload.get("article_url"),
+                payload.get("image_url"),
+                payload.get("caption"),
+                payload.get("scheduled_time"),
+                payload.get("posted_time"),
+                payload.get("status"),
+            ),
+        )
+        conn.commit()
+
+
+def log_posted_post(sqlite_path: str, payload: Dict) -> None:
+    """Insert a posted post record into post_log."""
+    payload = payload.copy()
+    payload["status"] = payload.get("status") or "posted"
+    log_scheduled_post(sqlite_path, payload)
+
+
+def has_posted_today(sqlite_path: str, brand_name: str, day_start: str, day_end: str) -> bool:
+    """Return True if brand has a posted post between day_start and day_end (ISO strings)."""
+    _ensure_dir(sqlite_path)
+    with sqlite3.connect(sqlite_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT 1 FROM post_log
+            WHERE brand_name = ?
+              AND status = 'posted'
+              AND posted_time >= ?
+              AND posted_time < ?
+            LIMIT 1
+            """,
+            (brand_name, day_start, day_end),
+        )
+        return cursor.fetchone() is not None
+
+
+def has_scheduled_between(sqlite_path: str, brand_name: str, day_start: str, day_end: str) -> bool:
+    """Return True if brand has a scheduled post between day_start and day_end (ISO strings)."""
+    _ensure_dir(sqlite_path)
+    with sqlite3.connect(sqlite_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT 1 FROM post_log
+            WHERE brand_name = ?
+              AND status = 'scheduled'
+              AND scheduled_time >= ?
+              AND scheduled_time < ?
+            LIMIT 1
+            """,
+            (brand_name, day_start, day_end),
+        )
+        return cursor.fetchone() is not None
 
 
 # Insert a log record into SQLite.

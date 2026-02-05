@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Dict
 
 from openai import OpenAI
@@ -14,14 +13,8 @@ def _count_words(text: str) -> int:
 
 
 def _format_source(entry: Dict) -> str:
-    published = entry.get("published")
-    if isinstance(published, datetime):
-        date_str = published.strftime("%B %d, %Y")
-    else:
-        date_str = datetime.utcnow().strftime("%B %d, %Y")
-
     source_url = entry.get("url") or entry.get("source") or "Unknown"
-    return f"Source: {source_url}, {date_str}"
+    return f"Source: {source_url}"
 
 
 def _build_caption_prompt(entry: Dict, product: Dict) -> str:
@@ -57,14 +50,15 @@ STRUCTURE (follow in order, do NOT label sections):
 4) A line starting with exactly: Learn more:
    followed by the product URL
 5) A line starting with exactly: Source:
-   followed by the article URL and date
-6) End with exactly 8 relevant hashtags
+   followed by the article URL (no date)
+6) End with exactly 10 relevant hashtags (include brand + product hashtags)
 
 ARTICLE:
 Title: {entry.get("title", "")}
 Summary: {entry.get("summary", "")}
 
 PRODUCT:
+Brand: {entry.get("brand_name", "")}
 Name: {product.get("product_name", "")}
 Description: {product.get("description", "")}
 Key Ingredients: {product.get("key_ingredients", "")}
@@ -94,6 +88,25 @@ def generate_caption(entry: Dict, product: Dict) -> str:
     )
 
     caption = response.choices[0].message.content.strip()
+
+    brand_tag = (entry.get("brand_name") or "").strip()
+    product_tag = (product.get("product_name") or "").strip()
+    brand_tags_raw = (entry.get("brand_tags") or "").strip()
+    extra_tags = []
+    if brand_tag:
+        extra_tags.append("#" + "".join(brand_tag.split()))
+    if product_tag:
+        extra_tags.append("#" + "".join(product_tag.split()))
+    if brand_tags_raw:
+        for tag in brand_tags_raw.split("|"):
+            cleaned = tag.strip()
+            if cleaned:
+                extra_tags.append("#" + "".join(cleaned.split()))
+    if extra_tags:
+        lower_caption = caption.lower()
+        for tag in extra_tags:
+            if tag.lower() not in lower_caption:
+                caption = f"{caption} {tag}".strip()
 
     # --- Safety net: word count enforcement ---
     word_count = _count_words(caption)

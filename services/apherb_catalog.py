@@ -58,7 +58,7 @@ def _create_dropbox_shared_link(path: str) -> Optional[str]:
         shared_url = response.json().get("url")
     if not shared_url:
         return None
-    return shared_url.replace("?dl=0", "?raw=1")
+    return shared_url.replace("www.dropbox.com", "dl.dropboxusercontent.com").replace("?dl=0", "")
 
 
 def _load_rotation_state() -> Dict[str, int]:
@@ -120,6 +120,10 @@ def _resolve_dropbox_image(folder_path: str) -> Dict[str, str]:
 # Load product data from CSV and resolve Dropbox image links.
 def load_products_from_csv(csv_path: str) -> List[Dict]:
     """Read product data from CSV and attach Dropbox image URLs."""
+    if not os.path.exists(csv_path):
+        info_path = os.path.join("info", csv_path)
+        if os.path.exists(info_path):
+            csv_path = info_path
     products: List[Dict] = []
     with open(csv_path, newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
@@ -150,7 +154,11 @@ def load_products_from_csv(csv_path: str) -> List[Dict]:
 
 
 def load_brands_from_csv(csv_path: str) -> List[Dict]:
-    """Read brand metadata from CSV (brand_name, product_info_csv_path, target_platforms, workspace_ids)."""
+    """Read brand metadata from CSV (brand_name, product_info_csv_path, target_platforms, workspace_ids, tags)."""
+    if not os.path.exists(csv_path):
+        info_path = os.path.join("info", csv_path)
+        if os.path.exists(info_path):
+            csv_path = info_path
     brands: List[Dict] = []
     with open(csv_path, newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
@@ -165,6 +173,7 @@ def load_brands_from_csv(csv_path: str) -> List[Dict]:
                     "target_platforms": (row.get("target_platforms") or "").strip(),
                     "workspace_ids": (row.get("workspace_ids") or "").strip(),
                     "rss_sources": (row.get("rss_sources") or "").strip(),
+                    "tags": (row.get("tags") or "").strip(),
                 }
             )
     return brands

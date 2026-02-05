@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Tuple
+from zoneinfo import ZoneInfo
 
 from pipeline.caption_writer import generate_caption
 from services.apherb_catalog import derive_brand_topics, load_brands_from_csv, load_products_from_csv, parse_brand_rss_sources
@@ -10,8 +11,12 @@ from utils.logger import (
     append_sheet_log,
     article_seen,
     build_log_payload,
+    has_posted_today,
+    has_scheduled_between,
     init_db,
     log_event,
+    log_posted_post,
+    log_scheduled_post,
     record_article_check,
     upsert_brand_topics,
 )
@@ -19,12 +24,35 @@ from pipeline.matcher import select_best_product
 from pipeline.safety_filter import safety_filter
 
 
-# Build the ISO timestamp for today's scheduled post time.
-def _schedule_iso() -> str:
-    """Build an ISO timestamp for today's scheduled post time."""
-    now = datetime.now()
-    scheduled = now.replace(hour=SETTINGS.schedule_hour, minute=SETTINGS.schedule_minute, second=0, microsecond=0)
-    return scheduled.isoformat()
+def _local_timezone() -> ZoneInfo | None:
+    """Return a ZoneInfo instance for the configured timezone, if valid."""
+    try:
+        return ZoneInfo(SETTINGS.local_timezone)
+    except Exception:
+        return None
+
+
+def _local_now() -> datetime:
+    """Return current time in the configured local timezone (fallback to naive)."""
+    tzinfo = _local_timezone()
+    return datetime.now(tz=tzinfo) if tzinfo else datetime.now()
+
+
+def _day_bounds(local_dt: datetime) -> Tuple[datetime, datetime]:
+    """Return start/end bounds for the date of local_dt."""
+    start = local_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=1)
+    return start, end
+
+
+def _schedule_time_for_day(local_dt: datetime) -> datetime:
+    """Return scheduled time for the date of local_dt."""
+    return local_dt.replace(
+        hour=SETTINGS.schedule_hour,
+        minute=SETTINGS.schedule_minute,
+        second=0,
+        microsecond=0,
+    )
 
 
 # Log the current outcome to SQLite/Sheets and continue to next item.
@@ -36,9 +64,20 @@ def _log_and_continue(entry: Dict, product: Dict, caption: str, status: str, rea
 
 
 # Process a single RSS entry end-to-end (safety, match, caption, post).
-def _process_entry(entry: Dict, products: list, brand: Dict) -> Tuple[bool, str]:
+def _process_entry(
+    entry: Dict,
+    products: list,
+    brand: Dict,
+    scheduled_time: datetime,
+    now_local: datetime,
+) -> Tuple[bool, str]:
     """Run safety checks, match a product, generate caption, and post/log result."""
     print(f"[pipeline] Evaluating entry: {entry.get('title', '')}")
+    entry = {
+        **entry,
+        "brand_name": brand.get("brand_name", ""),
+        "brand_tags": brand.get("tags", ""),
+    }
     ok, reason = safety_filter(entry, products)
     if not ok:
         print(f"[pipeline] Safety filter failed: {reason}")
@@ -125,27 +164,56 @@ def _process_entry(entry: Dict, products: list, brand: Dict) -> Tuple[bool, str]
         return False, "Missing workspace IDs"
 
     try:
+        scheduled_iso = scheduled_time.isoformat()
         create_post(
             SETTINGS.postly_base_url,
             SETTINGS.postly_api_key,
             caption,
             product.get("product_image_url", ""),
-            _schedule_iso(),
+            scheduled_iso,
             target_platforms=target_platforms,
             workspace_ids=workspace_ids,
         )
-        _log_and_continue(entry, product, caption, "posted", "")
+        status = "posted" if scheduled_time <= now_local else "scheduled"
+        post_payload = {
+            "brand_name": brand.get("brand_name", ""),
+            "article_title": entry.get("title", ""),
+            "article_url": entry.get("url", ""),
+            "image_url": product.get("product_image_url", ""),
+            "caption": caption,
+            "scheduled_time": scheduled_iso,
+            "posted_time": now_local.isoformat() if status == "posted" else None,
+            "status": status,
+        }
+        if status == "posted":
+            log_posted_post(SETTINGS.sqlite_path, post_payload)
+        else:
+            log_scheduled_post(SETTINGS.sqlite_path, post_payload)
+        _log_and_continue(entry, product, caption, status, "")
         record_article_check(
             SETTINGS.sqlite_path,
             brand.get("brand_name", ""),
             entry.get("title", ""),
             entry.get("url", ""),
-            "posted",
+            status,
             "",
         )
-        return True, "posted"
+        return True, status
     except Exception as exc:
         _log_and_continue(entry, product, caption, "failed", str(exc))
+        log_scheduled_post(
+            SETTINGS.sqlite_path,
+            {
+                "brand_name": brand.get("brand_name", ""),
+                "article_title": entry.get("title", ""),
+                "article_url": entry.get("url", ""),
+                "image_url": product.get("product_image_url", ""),
+                "caption": caption,
+                "scheduled_time": scheduled_time.isoformat(),
+                "posted_time": None,
+                "status": "failed",
+            },
+        )
         record_article_check(
             SETTINGS.sqlite_path,
             brand.get("brand_name", ""),
@@ -155,6 +223,31 @@ def _process_entry(entry: Dict, products: list, brand: Dict) -> Tuple[bool, str]
             str(exc),
         )
         return False, str(exc)
+
+
+def _schedule_for_brand(
+    brand: Dict,
+    products: list,
+    entries: list,
+    scheduled_time: datetime,
+    now_local: datetime,
+) -> bool:
+    """Find a valid entry and schedule a post for the brand."""
+    for entry in entries:
+        if article_seen(
+            SETTINGS.sqlite_path,
+            brand.get("brand_name", ""),
+            entry.get("title", ""),
+            entry.get("url", ""),
+        ):
+            print("[pipeline] Skipping already-checked article.")
+            continue
+        print("[pipeline] Processing next entry...")
+        posted, _ = _process_entry(entry, products, brand, scheduled_time, now_local)
+        if posted:
+            print("[pipeline] Post scheduled successfully. Done.")
+            return True
+    return False
 
 
 # Daily pipeline runner: ingest feeds, load catalog, and post first valid item.
@@ -190,22 +283,33 @@ def run_daily() -> None:
         entries = ingest_rss(sources)
         print(f"[pipeline] RSS entries loaded: {len(entries)}")
 
-        posted = False
-        for entry in entries:
-            if article_seen(
+        now_local = _local_now()
+        today_start, today_end = _day_bounds(now_local)
+        tomorrow_start, tomorrow_end = _day_bounds(now_local + timedelta(days=1))
+        posted_today = has_posted_today(
+            SETTINGS.sqlite_path,
+            brand_name,
+            today_start.isoformat(),
+            today_end.isoformat(),
+        )
+        if posted_today:
+            if has_scheduled_between(
                 SETTINGS.sqlite_path,
                 brand_name,
-                entry.get("title", ""),
-                entry.get("url", ""),
+                tomorrow_start.isoformat(),
+                tomorrow_end.isoformat(),
             ):
-                print("[pipeline] Skipping already-checked article.")
+                print(f"[pipeline] Tomorrow already scheduled for {brand_name}.")
                 continue
-            print("[pipeline] Processing next entry...")
-            posted, _ = _process_entry(entry, products, brand)
-            if posted:
-                print("[pipeline] Post scheduled successfully. Done.")
-                break
-        if not posted:
+            scheduled_time = _schedule_time_for_day(tomorrow_start)
+            scheduled = _schedule_for_brand(brand, products, entries, scheduled_time, now_local)
+        else:
+            scheduled_time = _schedule_time_for_day(today_start)
+            if now_local >= scheduled_time:
+                scheduled_time = now_local
+            scheduled = _schedule_for_brand(brand, products, entries, scheduled_time, now_local)
+
+        if not scheduled:
             print(f"[pipeline] No valid articles found for {brand_name}.")
             _log_and_continue({}, {}, "", "failed", f"No valid articles found for {brand_name}")
 

@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- Added brand tags column in Brands.csv and appended tags to caption hashtags.
+- Added post_log table with scheduling/posted tracking and today/tomorrow scheduling logic.
+- Added test_post_immediate.py for immediate Postly posting tests.
 - Added Dropbox refresh-token helper and reorganized modules into services/pipeline/utils folders.
 - Added article history table and skip logic to avoid re-checking already processed articles.
 - Added multi-brand support via Brands.csv, per-brand RSS overrides, and Postly target/workspace routing.

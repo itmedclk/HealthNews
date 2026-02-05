@@ -28,6 +28,7 @@ def main() -> None:
         print(f"[preview] Product match threshold: {SETTINGS.product_match_threshold}")
         print(f"[preview] AI relevance threshold: {SETTINGS.relevance_threshold}")
         for entry in entries:
+            entry = {**entry, "brand_name": brand_name, "brand_tags": brand.get("tags", "")}
             print(f"[preview] Evaluating entry: {entry.get('title', '')}")
             ok, reason = safety_filter(entry, products)
             if not ok:
