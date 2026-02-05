@@ -36,6 +36,53 @@ def init_db(sqlite_path: str) -> None:
             )
             """
         )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS brands (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                brand_name TEXT UNIQUE,
+                topics TEXT,
+                product_categories TEXT,
+                product_subcategories TEXT,
+                product_tags TEXT,
+                updated_at TEXT
+            )
+            """
+        )
+        conn.commit()
+
+
+def upsert_brand_topics(sqlite_path: str, payload: Dict) -> None:
+    """Insert or update brand topic metadata in SQLite."""
+    _ensure_dir(sqlite_path)
+    with sqlite3.connect(sqlite_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO brands (
+                brand_name,
+                topics,
+                product_categories,
+                product_subcategories,
+                product_tags,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(brand_name) DO UPDATE SET
+                topics=excluded.topics,
+                product_categories=excluded.product_categories,
+                product_subcategories=excluded.product_subcategories,
+                product_tags=excluded.product_tags,
+                updated_at=excluded.updated_at
+            """,
+            (
+                payload.get("brand_name"),
+                payload.get("topics"),
+                payload.get("product_categories"),
+                payload.get("product_subcategories"),
+                payload.get("product_tags"),
+                payload.get("updated_at"),
+            ),
+        )
         conn.commit()
 
 

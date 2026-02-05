@@ -10,6 +10,8 @@ def create_post(
     caption: str,
     image_url: str,
     scheduled_iso: str,
+    target_platforms: str = "",
+    workspace_ids: str = "",
 ) -> Dict:
     """Send a scheduled Instagram post request to the Postly API."""
     endpoint = f"{base_url.rstrip('/')}/v1/posts"
@@ -17,9 +19,12 @@ def create_post(
     payload = {
         "text": caption,
         "media": [{"url": image_url, "type": "image"}],
-        "target_platforms": ["instagram"],
         "one_off_schedule": scheduled_iso,
     }
+    if target_platforms:
+        payload["target_platforms"] = target_platforms
+    if workspace_ids:
+        payload["workspace"] = workspace_ids
     response = requests.post(endpoint, json=payload, headers=headers, timeout=30)
     response.raise_for_status()
     return response.json()

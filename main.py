@@ -1,10 +1,10 @@
 from datetime import datetime
 from typing import Dict, Tuple
 
-from apherb_catalog import load_products_from_csv
+from apherb_catalog import derive_brand_topics, load_brands_from_csv, load_products_from_csv, parse_brand_rss_sources
 from caption_writer import generate_caption
 from config import SETTINGS
-from logger import append_sheet_log, build_log_payload, init_db, log_event
+from logger import append_sheet_log, build_log_payload, init_db, log_event, upsert_brand_topics
 from matcher import select_best_product
 from postly_client import create_post
 from rss_ingest import ingest_rss
@@ -28,7 +28,7 @@ def _log_and_continue(entry: Dict, product: Dict, caption: str, status: str, rea
 
 
 # Process a single RSS entry end-to-end (safety, match, caption, post).
-def _process_entry(entry: Dict, products: list) -> Tuple[bool, str]:
+def _process_entry(entry: Dict, products: list, brand: Dict) -> Tuple[bool, str]:
     """Run safety checks, match a product, generate caption, and post/log result."""
     print(f"[pipeline] Evaluating entry: {entry.get('title', '')}")
     ok, reason = safety_filter(entry, products)
@@ -64,6 +64,8 @@ def _process_entry(entry: Dict, products: list) -> Tuple[bool, str]:
             caption,
             product.get("product_image_url", ""),
             _schedule_iso(),
+            target_platforms=brand.get("target_platforms", ""),
+            workspace_ids=brand.get("workspace_ids", ""),
         )
         _log_and_continue(entry, product, caption, "posted", "")
         return True, "posted"
@@ -74,28 +76,47 @@ def _process_entry(entry: Dict, products: list) -> Tuple[bool, str]:
 
 # Daily pipeline runner: ingest feeds, load catalog, and post first valid item.
 def run_daily() -> None:
-    """Main daily workflow: ingest RSS, scrape catalog, and post the first valid article."""
+    """Main daily workflow: ingest RSS, scrape catalog, and post the first valid article per brand."""
     print("[pipeline] Initializing database...")
     init_db(SETTINGS.sqlite_path)
-    print("[pipeline] Ingesting RSS feeds...")
-    entries = ingest_rss(SETTINGS.rss_sources)
-    print(f"[pipeline] RSS entries loaded: {len(entries)}")
-    print("[pipeline] Loading product catalog...")
-    products = load_products_from_csv(SETTINGS.product_info_csv_path)
-    if not products:
-        print("[pipeline] Product catalog empty.")
-        _log_and_continue({}, {}, "", "failed", "AP Herb catalog is empty")
+    brands = load_brands_from_csv(SETTINGS.brands_csv_path)
+    if not brands:
+        print("[pipeline] No brands found in Brands.csv.")
+        _log_and_continue({}, {}, "", "failed", "Brands.csv is empty")
         return
 
-    for entry in entries:
-        print("[pipeline] Processing next entry...")
-        posted, _ = _process_entry(entry, products)
-        if posted:
-            print("[pipeline] Post scheduled successfully. Done.")
-            return
+    for brand in brands:
+        brand_name = brand.get("brand_name", "Unknown")
+        print(f"[pipeline] Processing brand: {brand_name}")
+        product_csv = brand.get("product_info_csv_path") or SETTINGS.product_info_csv_path
+        print(f"[pipeline] Loading product catalog for {brand_name}...")
+        products = load_products_from_csv(product_csv)
+        if not products:
+            print(f"[pipeline] Product catalog empty for {brand_name}.")
+            _log_and_continue({}, {}, "", "failed", f"Product catalog empty for {brand_name}")
+            continue
 
-    print("[pipeline] No valid articles found.")
-    _log_and_continue({}, {}, "", "failed", "No valid articles found")
+        topics_payload = derive_brand_topics(products)
+        topics_payload["brand_name"] = brand_name
+        topics_payload["updated_at"] = datetime.utcnow().isoformat()
+        upsert_brand_topics(SETTINGS.sqlite_path, topics_payload)
+
+        brand_sources = parse_brand_rss_sources(brand.get("rss_sources", ""))
+        sources = brand_sources or SETTINGS.rss_sources
+        print(f"[pipeline] Ingesting RSS feeds for {brand_name}...")
+        entries = ingest_rss(sources)
+        print(f"[pipeline] RSS entries loaded: {len(entries)}")
+
+        posted = False
+        for entry in entries:
+            print("[pipeline] Processing next entry...")
+            posted, _ = _process_entry(entry, products, brand)
+            if posted:
+                print("[pipeline] Post scheduled successfully. Done.")
+                break
+        if not posted:
+            print(f"[pipeline] No valid articles found for {brand_name}.")
+            _log_and_continue({}, {}, "", "failed", f"No valid articles found for {brand_name}")
 
 
 if __name__ == "__main__":

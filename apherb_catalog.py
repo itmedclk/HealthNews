@@ -144,3 +144,54 @@ def load_products_from_csv(csv_path: str) -> List[Dict]:
             }
             products.append(product)
     return products
+
+
+def load_brands_from_csv(csv_path: str) -> List[Dict]:
+    """Read brand metadata from CSV (brand_name, product_info_csv_path, target_platforms, workspace_ids)."""
+    brands: List[Dict] = []
+    with open(csv_path, newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            brand_name = (row.get("brand_name") or "").strip()
+            if not brand_name:
+                continue
+            brands.append(
+                {
+                    "brand_name": brand_name,
+                    "product_info_csv_path": (row.get("product_info_csv_path") or "").strip(),
+                    "target_platforms": (row.get("target_platforms") or "").strip(),
+                    "workspace_ids": (row.get("workspace_ids") or "").strip(),
+                    "rss_sources": (row.get("rss_sources") or "").strip(),
+                }
+            )
+    return brands
+
+
+def _split_csv_list(value: str) -> List[str]:
+    return [item.strip() for item in value.split("|") if item.strip()]
+
+
+def derive_brand_topics(products: List[Dict]) -> Dict[str, str]:
+    """Derive topics for a brand based on its product catalog fields."""
+    categories = sorted({p.get("category", "").strip() for p in products if p.get("category")})
+    subcategories = sorted({p.get("sub_category", "").strip() for p in products if p.get("sub_category")})
+    tag_set = set()
+    for product in products:
+        tags = product.get("tags", "") or ""
+        for tag in tags.split(","):
+            cleaned = tag.strip()
+            if cleaned:
+                tag_set.add(cleaned)
+    tags = sorted(tag_set)
+    topics = sorted({*categories, *subcategories, *tags})
+    return {
+        "topics": ", ".join(topics),
+        "product_categories": ", ".join(categories),
+        "product_subcategories": ", ".join(subcategories),
+        "product_tags": ", ".join(tags),
+    }
+
+
+def parse_brand_rss_sources(raw_sources: str) -> List[str]:
+    """Parse a pipe-delimited list of RSS sources for a brand (optional override)."""
+    return _split_csv_list(raw_sources)

@@ -1,7 +1,7 @@
 # Automated Health News → Instagram (AP Herb) — Project Plan
 
 ## 1) Goal, Deliverables, Success Criteria, Constraints
-**Goal**: Build a Python 3.11+ Replit app that automatically posts daily health news to Instagram at **5:00 AM local time**, using **AP Herb** products and **Postly.ai**.
+**Goal**: Build a Python 3.11+ Replit app that automatically posts daily health news to Instagram at **5:00 AM local time**, using **brand-specific** product catalogs and **Postly.ai**.
 
 **Deliverables**
 - `plan.md` (this document)
@@ -9,8 +9,8 @@
 - Daily automation pipeline with logging
 
 **Success Criteria**
-- Posts appear daily at 5:00 AM with image + caption
-- Uses **only AP Herb** product data
+- Posts appear daily at 5:00 AM with image + caption for each brand
+- Uses brand-specific product data and associated topics
 - Enforces exclusions and safety rules
 - Captions are 100–150 words, English, educational tone
 - Logs all outcomes (posted/skipped/failed)
@@ -26,10 +26,10 @@
 1. **RSS Ingest** → pull multiple health feeds, dedupe, newest-first
 2. **Safety Filter** → hard-block excluded topics + AI safety classifier
 3. **Caption Writer** → AI rewrite to IG format (100–150 words)
-4. **AP Herb Catalog** → load from CSV + Dropbox image lookup
+4. **Brand Catalogs** → load per-brand CSV + Dropbox image lookup
 5. **Product Matcher** → score products + optional AI ranking
-6. **Postly Publish** → schedule post for 5:00 AM
-7. **Logging** → write SQLite log entries
+6. **Postly Publish** → schedule post for 5:00 AM per brand
+7. **Logging** → write SQLite log entries + persist brand topics
 
 If an item fails safety or matching, **skip to next item**.
 
@@ -68,8 +68,17 @@ Rules:
 
 ---
 
-## 5) AP Herb Product Catalog Ingestion
-**Source of truth**: `Product_Info.csv`
+## 5) Brand Catalog Ingestion
+**Source of truth**: `Brands.csv` + per-brand product CSVs
+
+`Brands.csv` columns:
+- `brand_name`
+- `product_info_csv_path`
+- `target_platforms` (Postly target platforms or channel IDs)
+- `workspace_ids` (Postly workspace IDs)
+- `rss_sources` (optional pipe-delimited override list)
+
+Each brand points to its product catalog (defaulting to `Product_Info.csv` when blank).
 
 **Extract fields**:
 - product_name
@@ -159,7 +168,7 @@ Prompt the model to label:
 **Payload essentials**:
 - `text`: caption
 - `media`: [{ url, type }]
-- `target_platforms`: Instagram
+- `target_platforms`: per-brand channels or `instagram`
 - `one_off_schedule`: date + time + timezone (5:00 AM local)
 
 We will align the payload with Postly docs and your provided cURL example.
@@ -178,6 +187,9 @@ Each run logs to **SQLite** and also appends a row to **Google Sheets**:
 
 **Google Sheets**: use a service account + `gspread` (or Google Sheets API) and store
 credentials in Replit Secrets (e.g., `GOOGLE_SHEETS_CREDENTIALS_JSON`, `GOOGLE_SHEET_ID`).
+
+**Brand topics table**:
+- `brands` table stores derived topics (categories/subcategories/tags) per brand.
 
 ---
 
@@ -198,6 +210,7 @@ credentials in Replit Secrets (e.g., `GOOGLE_SHEETS_CREDENTIALS_JSON`, `GOOGLE_S
 - `POSTLY_WORKSPACE` or any required workspace ID
 - `DROPBOX_ACCESS_TOKEN`
 - `PRODUCT_INFO_CSV_PATH`
+- `BRANDS_CSV_PATH`
 
 ---
 

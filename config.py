@@ -15,6 +15,17 @@ class Settings:
             "https://www.who.int/feeds/entity/mediacentre/news/en/rss.xml",
             "https://www.nih.gov/feed",
             "https://www.health.com/feed",
+            "https://news.google.com/rss/search?q=eye+health&hl=en-US&gl=US&ceid=US:en",
+            "https://news.google.com/rss/search?q=brain+health&hl=en-US&gl=US&ceid=US:en",
+            "https://news.google.com/rss/search?q=gout+health&hl=en-US&gl=US&ceid=US:en",
+            "https://news.google.com/rss/search?q=blood+pressure+health&hl=en-US&gl=US&ceid=US:en",
+            "https://news.google.com/rss/search?q=blood+sugar+health&hl=en-US&gl=US&ceid=US:en",
+            "https://news.google.com/rss/search?q=muscle+pain+relief+health&hl=en-US&gl=US&ceid=US:en",
+            "https://news.google.com/rss/search?q=joint+pain+relief+health&hl=en-US&gl=US&ceid=US:en",
+            "https://news.google.com/rss/search?q=digestive+health&hl=en-US&gl=US&ceid=US:en",
+            "https://news.google.com/rss/search?q=digestive+health&hl=en-US&gl=US&ceid=US:en",
+            "https://www.sciencedaily.com/rss/top/health.xml ",
+            "https://www.naturalproductsinsider.com/rss.xml"
         ]
     )
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
@@ -43,6 +54,7 @@ class Settings:
         ]
     )
     product_info_csv_path: str = os.getenv("PRODUCT_INFO_CSV_PATH", "Product_Info.csv")
+    brands_csv_path: str = os.getenv("BRANDS_CSV_PATH", "Brands.csv")
     dropbox_access_token: str = os.getenv("DROPBOX_ACCESS_TOKEN", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     novita_base_url: str = os.getenv("NOVITA_BASE_URL", "https://api.novita.ai/openai")
