@@ -28,7 +28,6 @@ def generate_caption(entry: Dict, product: Dict) -> str:
     hook = f"{entry.get('title', 'Today in health news')}."
     summary = entry.get("summary", "").strip()
     summary_sentence = summary if summary.endswith(".") else f"{summary}."
-    why = "Why it matters: understanding health trends helps inform daily wellness choices."
     product_line = (
         f"Learn more about {product.get('product_name', 'this AP Herb product')} "
         "as part of a balanced, educational wellness routine."
@@ -41,7 +40,6 @@ def generate_caption(entry: Dict, product: Dict) -> str:
         [
             hook,
             summary_sentence,
-            why,
             product_line,
             source,
             product_link,
