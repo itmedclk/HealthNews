@@ -64,6 +64,8 @@ class Settings:
     product_match_threshold: float = float(os.getenv("PRODUCT_MATCH_THRESHOLD", "0.1"))
     use_ai_rerank: bool = os.getenv("USE_AI_RERANK", "true").lower() == "true"
     ai_rerank_top_n: int = int(os.getenv("AI_RERANK_TOP_N", "5"))
+    avoid_repeat_product: bool = os.getenv("AVOID_REPEAT_PRODUCT", "true").lower() == "true"
+    avoid_repeat_product_count: int = int(os.getenv("AVOID_REPEAT_PRODUCT_COUNT", "2"))
 
 
 SETTINGS = Settings()

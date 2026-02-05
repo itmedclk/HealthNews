@@ -68,6 +68,7 @@ def init_db(sqlite_path: str) -> None:
             CREATE TABLE IF NOT EXISTS post_log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 brand_name TEXT,
+                product_name TEXT,
                 article_title TEXT,
                 article_url TEXT,
                 image_url TEXT,
@@ -78,6 +79,10 @@ def init_db(sqlite_path: str) -> None:
             )
             """
         )
+        cursor.execute("PRAGMA table_info(post_log)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "product_name" not in columns:
+            cursor.execute("ALTER TABLE post_log ADD COLUMN product_name TEXT")
         conn.commit()
 
 
@@ -183,6 +188,7 @@ def log_scheduled_post(sqlite_path: str, payload: Dict) -> None:
             """
             INSERT INTO post_log (
                 brand_name,
+                product_name,
                 article_title,
                 article_url,
                 image_url,
@@ -190,10 +196,11 @@ def log_scheduled_post(sqlite_path: str, payload: Dict) -> None:
                 scheduled_time,
                 posted_time,
                 status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payload.get("brand_name"),
+                payload.get("product_name"),
                 payload.get("article_title"),
                 payload.get("article_url"),
                 payload.get("image_url"),
@@ -211,6 +218,38 @@ def log_posted_post(sqlite_path: str, payload: Dict) -> None:
     payload = payload.copy()
     payload["status"] = payload.get("status") or "posted"
     log_scheduled_post(sqlite_path, payload)
+
+
+def get_last_products(sqlite_path: str, brand_name: str, limit: int = 2) -> list[str]:
+    """Return the most recent product_name values for a brand."""
+    _ensure_dir(sqlite_path)
+    with sqlite3.connect(sqlite_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT product_name FROM post_log
+            WHERE brand_name = ?
+              AND product_name IS NOT NULL
+              AND product_name != ''
+            ORDER BY COALESCE(posted_time, scheduled_time) DESC
+            LIMIT ?
+            """,
+            (brand_name, limit),
+        )
+        rows = cursor.fetchall()
+        return [row[0] for row in rows if row and row[0]]
+
+
+def clear_post_log(sqlite_path: str, brand_name: str | None = None) -> None:
+    """Clear post_log records (optionally for a single brand)."""
+    _ensure_dir(sqlite_path)
+    with sqlite3.connect(sqlite_path) as conn:
+        cursor = conn.cursor()
+        if brand_name:
+            cursor.execute("DELETE FROM post_log WHERE brand_name = ?", (brand_name,))
+        else:
+            cursor.execute("DELETE FROM post_log")
+        conn.commit()
 
 
 def has_posted_today(sqlite_path: str, brand_name: str, day_start: str, day_end: str) -> bool:

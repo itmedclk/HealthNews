@@ -5,33 +5,60 @@ from openai import OpenAI
 
 from utils.config import SETTINGS
 
+NOISE_TOKENS = {
+    "health", "healthy", "wellness", "wellbeing", "study", "studies",
+    "research", "researchers", "suggest", "suggests", "show", "shows",
+    "may", "might", "could", "help", "support", "benefit", "important",
+    "system", "body", "function", "functions", "natural", "daily",
+    "overall", "including", "based", "used", "using",
+}
+
 
 # Tokenize text into keywords for similarity scoring.
 def _tokenize(text: str) -> List[str]:
     """Extract lowercase tokens for simple keyword matching."""
-    return re.findall(r"[a-zA-Z]{3,}", text.lower())
+    tokens = re.findall(r"[a-zA-Z]{3,}", text.lower())
+    return [token for token in tokens if token not in NOISE_TOKENS]
+
+
+FIELD_WEIGHTS = {
+    "product_name": 3.0,
+    "category": 2.0,
+    "main_benefit": 2.5,
+    "ingredients": 2.0,
+    "description": 1.0,
+}
+
+def _weighted_product_tokens(product: Dict) -> Dict[str, float]:
+    weights: Dict[str, float] = {}
+
+    for field, weight in FIELD_WEIGHTS.items():
+        text = product.get(field, "")
+        for token in _tokenize(text):
+            weights[token] = max(weights.get(token, 0), weight)
+
+    return weights
 
 
 # Score how well a product matches a news entry.
 def score_product(entry: Dict, product: Dict) -> float:
-    """Compute a similarity score between a news entry and a product description."""
-    text = f"{entry.get('title', '')} {entry.get('summary', '')}"
-    tokens = set(_tokenize(text))
-    if not tokens:
+    entry_tokens = set(_tokenize(
+        f"{entry.get('title', '')} {entry.get('summary', '')}"
+    ))
+    if not entry_tokens:
         return 0.0
-    description = " ".join(
-        [
-            product.get("product_name", ""),
-            product.get("description", ""),
-            product.get("ingredients", ""),
-            product.get("category", ""),
-        ]
-    )
-    product_tokens = set(_tokenize(description))
-    if not product_tokens:
+
+    product_weights = _weighted_product_tokens(product)
+    if not product_weights:
         return 0.0
-    overlap = tokens.intersection(product_tokens)
-    return len(overlap) / max(len(tokens), 1)
+
+    score = 0.0
+    for token in entry_tokens:
+        if token in product_weights:
+            score += product_weights[token]
+
+    # normalize by entry length (softly)
+    return score / (len(entry_tokens) ** 0.7)
 
 
 # Select the top matching product above the minimum score threshold.

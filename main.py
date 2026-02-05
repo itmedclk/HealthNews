@@ -11,6 +11,7 @@ from utils.logger import (
     append_sheet_log,
     article_seen,
     build_log_payload,
+    get_last_products,
     has_posted_today,
     has_scheduled_between,
     init_db,
@@ -68,6 +69,7 @@ def _process_entry(
     entry: Dict,
     products: list,
     brand: Dict,
+    last_products: list[str],
     scheduled_time: datetime,
     now_local: datetime,
 ) -> Tuple[bool, str]:
@@ -107,7 +109,12 @@ def _process_entry(
         )
         return False, "No product match"
 
-    print(f"[pipeline] Product matched: {product.get('product_name', '')} (score={score:.2f})")
+    product_name = product.get("product_name", "")
+    if SETTINGS.avoid_repeat_product and last_products and product_name in last_products:
+        print("[pipeline] Skipping entry due to repeated product match.")
+        return False, "repeat_product"
+
+    print(f"[pipeline] Product matched: {product_name} (score={score:.2f})")
     caption = generate_caption(entry, product)
 
     if not product.get("product_image_url"):
@@ -177,6 +184,7 @@ def _process_entry(
         status = "posted" if scheduled_time <= now_local else "scheduled"
         post_payload = {
             "brand_name": brand.get("brand_name", ""),
+            "product_name": product_name,
             "article_title": entry.get("title", ""),
             "article_url": entry.get("url", ""),
             "image_url": product.get("product_image_url", ""),
@@ -205,6 +213,7 @@ def _process_entry(
             SETTINGS.sqlite_path,
             {
                 "brand_name": brand.get("brand_name", ""),
+                "product_name": product_name,
                 "article_title": entry.get("title", ""),
                 "article_url": entry.get("url", ""),
                 "image_url": product.get("product_image_url", ""),
@@ -227,6 +236,7 @@ def _process_entry(
 
 def _schedule_for_brand(
     brand: Dict,
+    last_products: list[str],
     products: list,
     entries: list,
     scheduled_time: datetime,
@@ -238,12 +248,14 @@ def _schedule_for_brand(
             SETTINGS.sqlite_path,
             brand.get("brand_name", ""),
             entry.get("title", ""),
-            entry.get("url", ""),
+            entry.get("article_url", ""),
         ):
             print("[pipeline] Skipping already-checked article.")
             continue
         print("[pipeline] Processing next entry...")
-        posted, _ = _process_entry(entry, products, brand, scheduled_time, now_local)
+        posted, reason = _process_entry(entry, products, brand, last_products, scheduled_time, now_local)
+        if reason == "repeat_product":
+            continue
         if posted:
             print("[pipeline] Post scheduled successfully. Done.")
             return True
@@ -292,6 +304,11 @@ def run_daily() -> None:
             today_start.isoformat(),
             today_end.isoformat(),
         )
+        last_products = get_last_products(
+            SETTINGS.sqlite_path,
+            brand_name,
+            SETTINGS.avoid_repeat_product_count,
+        )
         if posted_today:
             if has_scheduled_between(
                 SETTINGS.sqlite_path,
@@ -302,12 +319,12 @@ def run_daily() -> None:
                 print(f"[pipeline] Tomorrow already scheduled for {brand_name}.")
                 continue
             scheduled_time = _schedule_time_for_day(tomorrow_start)
-            scheduled = _schedule_for_brand(brand, products, entries, scheduled_time, now_local)
+            scheduled = _schedule_for_brand(brand, last_products, products, entries, scheduled_time, now_local)
         else:
             scheduled_time = _schedule_time_for_day(today_start)
             if now_local >= scheduled_time:
                 scheduled_time = now_local
-            scheduled = _schedule_for_brand(brand, products, entries, scheduled_time, now_local)
+            scheduled = _schedule_for_brand(brand, last_products, products, entries, scheduled_time, now_local)
 
         if not scheduled:
             print(f"[pipeline] No valid articles found for {brand_name}.")

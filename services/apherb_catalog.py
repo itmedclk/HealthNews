@@ -118,8 +118,8 @@ def _resolve_dropbox_image(folder_path: str) -> Dict[str, str]:
 
 
 # Load product data from CSV and resolve Dropbox image links.
-def load_products_from_csv(csv_path: str) -> List[Dict]:
-    """Read product data from CSV and attach Dropbox image URLs."""
+def load_products_from_csv(csv_path: str, resolve_images: bool = True) -> List[Dict]:
+    """Read product data from CSV and attach Dropbox image URLs when enabled."""
     if not os.path.exists(csv_path):
         info_path = os.path.join("info", csv_path)
         if os.path.exists(info_path):
@@ -131,7 +131,7 @@ def load_products_from_csv(csv_path: str) -> List[Dict]:
             if str(row.get("is_active", "")).strip() != "1":
                 continue
             image_path = (row.get("image_path") or "").strip()
-            image_result = _resolve_dropbox_image(image_path)
+            image_result = _resolve_dropbox_image(image_path) if resolve_images else {"image_url": ""}
             product = {
                 "product_name": row.get("product_name", "").strip(),
                 "product_url": row.get("product_url", "").strip(),

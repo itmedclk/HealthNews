@@ -14,7 +14,7 @@ def hard_block_check(text: str) -> Tuple[bool, str]:
     return True, ""
 
 
-# Placeholder AI safety check (returns safe by default).
+# Placeholder AI safety check .
 def _build_client() -> OpenAI:
     return OpenAI(api_key=SETTINGS.novita_api_key, base_url=SETTINGS.novita_base_url)
 
@@ -63,7 +63,7 @@ def ai_product_relevance_check(text: str, products: List[Dict]) -> Tuple[bool, s
 
     prompt = (
         "You are a relevance classifier for a health news Instagram automation. "
-        "Given a news article and a list of AP Herb products, decide whether the article is "
+        "Given a news article and a list of products, decide whether the article is "
         "related to at least one product. Return a relevance score between 0 and 1. "
         "Reply with a single line in the format: RELATED=yes|no;SCORE=0.00;REASON=...\n\n"
         f"ARTICLE:\n{text}\n\n"

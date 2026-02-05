@@ -48,8 +48,10 @@ If an item fails safety or matching, **skip to next item**.
 │   ├── matcher.py
 │   ├── preview_post.py
 │   ├── safety_filter.py
-│   ├── test_apherb_scraper.py
-│   └── test_post_immediate.py
+│   └── tests/
+│       ├── test_apherb_scraper.py
+│       ├── test_avoid_repeat_product.py
+│       └── test_post_immediate.py
 ├── utils/                 # Shared helpers + settings
 │   ├── config.py
 │   ├── dropbox_auth.py
@@ -135,11 +137,12 @@ Prompt the model to label:
 
 ## 7) Product Matching (AI-Assisted Hybrid)
 **Baseline scoring**:
-- Extract keywords from article
-- Score products by ingredient overlap + description similarity + category relevance
+- Extract keywords from article (noise tokens removed)
+- Apply weighted scoring by product fields (product_name, category, main_benefit, ingredients, description)
+- Normalize by entry length to avoid long-article bias
 
 **AI ranking (optional)**:
-- Provide top 5 candidates + article
+- Provide top candidates + article
 - Ask AI to select **exactly one** best match or “no good match”
 
 **Decision**:
@@ -167,8 +170,9 @@ Prompt the model to label:
 
 ## 9) Product Image Handling
 1. Resolve product image via Dropbox folder path (`image_path`)
-2. Pick first image file and generate shared link
-3. Attach shared link via Postly API
+2. Rotate images per product (sorted filenames) using `data/image_rotation.json`
+3. Pick the next image in rotation and generate a shared link
+4. Attach shared link via Postly API
 
 ---
 
@@ -243,6 +247,7 @@ Schema (SQLite):
 post_log(
   id INTEGER PRIMARY KEY,
   brand_name TEXT,
+  product_name TEXT,
   article_title TEXT,
   article_url TEXT,
   image_url TEXT,
@@ -275,6 +280,8 @@ post_log(
 - `POSTLY_API_KEY`
 - `POSTLY_BASE_URL` (optional, default to `https://openapi.postly.ai`)
 - `POSTLY_WORKSPACE_IDS` (fallback for brand workspace IDs)
+- `AVOID_REPEAT_PRODUCT` (default true; skip posts that match the last N products)
+- `AVOID_REPEAT_PRODUCT_COUNT` (default 2; number of recent products to avoid)
 - `DROPBOX_ACCESS_TOKEN`
 - `DROPBOX_REFRESH_TOKEN`
 - `DROPBOX_CLIENT_ID`
@@ -294,6 +301,14 @@ post_log(
 7. Logging + schedule trigger
 
 ---
+
+
+
+
+
+
+
+
 
 
 

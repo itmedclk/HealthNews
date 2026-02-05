@@ -69,6 +69,7 @@ def main() -> None:
             SETTINGS.sqlite_path,
             {
                 "brand_name": brand_name,
+                "product_name": product.get("product_name", ""),
                 "article_title": entry.get("title", ""),
                 "article_url": entry.get("url", ""),
                 "image_url": product.get("product_image_url", ""),

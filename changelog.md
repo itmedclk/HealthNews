@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- Updated matcher scoring to use weighted keyword fields with noise-token filtering and optional AI rerank.
+- Added test_avoid_repeat_product.py for repeat-product checks and clear_post_log helper.
+- Added AVOID_REPEAT_PRODUCT_COUNT setting to configure the product repeat window.
+- Added AVOID_REPEAT_PRODUCT setting and post_log product_name tracking to avoid repeating recent products.
 - Added brand tags column in Brands.csv and appended tags to caption hashtags.
 - Added post_log table with scheduling/posted tracking and today/tomorrow scheduling logic.
 - Added test_post_immediate.py for immediate Postly posting tests.
