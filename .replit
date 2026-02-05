@@ -28,3 +28,7 @@ args = "python main.py"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[deployment]
+run = ["sh", "-c", "PYTHONPATH=. python main.py"]
+deploymentTarget = "scheduled"
