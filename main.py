@@ -4,7 +4,15 @@ from typing import Dict, Tuple
 from apherb_catalog import derive_brand_topics, load_brands_from_csv, load_products_from_csv, parse_brand_rss_sources
 from caption_writer import generate_caption
 from config import SETTINGS
-from logger import append_sheet_log, build_log_payload, init_db, log_event, upsert_brand_topics
+from logger import (
+    append_sheet_log,
+    article_seen,
+    build_log_payload,
+    init_db,
+    log_event,
+    record_article_check,
+    upsert_brand_topics,
+)
 from matcher import select_best_product
 from postly_client import create_post
 from rss_ingest import ingest_rss
@@ -35,6 +43,14 @@ def _process_entry(entry: Dict, products: list, brand: Dict) -> Tuple[bool, str]
     if not ok:
         print(f"[pipeline] Safety filter failed: {reason}")
         _log_and_continue(entry, {}, "", "skipped", reason)
+        record_article_check(
+            SETTINGS.sqlite_path,
+            brand.get("brand_name", ""),
+            entry.get("title", ""),
+            entry.get("url", ""),
+            "skipped",
+            reason,
+        )
         return False, reason
 
     print("[pipeline] Safety filter passed. Selecting product...")
@@ -42,6 +58,14 @@ def _process_entry(entry: Dict, products: list, brand: Dict) -> Tuple[bool, str]
     if not product:
         print(f"[pipeline] No product match (score={score:.2f}).")
         _log_and_continue(entry, {}, "", "skipped", f"No product match (score={score:.2f})")
+        record_article_check(
+            SETTINGS.sqlite_path,
+            brand.get("brand_name", ""),
+            entry.get("title", ""),
+            entry.get("url", ""),
+            "skipped",
+            f"No product match (score={score:.2f})",
+        )
         return False, "No product match"
 
     print(f"[pipeline] Product matched: {product.get('product_name', '')} (score={score:.2f})")
@@ -50,11 +74,27 @@ def _process_entry(entry: Dict, products: list, brand: Dict) -> Tuple[bool, str]
     if not product.get("product_image_url"):
         print("[pipeline] Missing product image URL.")
         _log_and_continue(entry, product, caption, "failed", "Missing product image URL")
+        record_article_check(
+            SETTINGS.sqlite_path,
+            brand.get("brand_name", ""),
+            entry.get("title", ""),
+            entry.get("url", ""),
+            "failed",
+            "Missing product image URL",
+        )
         return False, "Missing product image URL"
 
     if not SETTINGS.postly_api_key:
         print("[pipeline] POSTLY_API_KEY missing; dry run only.")
         _log_and_continue(entry, product, caption, "failed", "Missing POSTLY_API_KEY")
+        record_article_check(
+            SETTINGS.sqlite_path,
+            brand.get("brand_name", ""),
+            entry.get("title", ""),
+            entry.get("url", ""),
+            "failed",
+            "Missing POSTLY_API_KEY",
+        )
         return False, "Missing POSTLY_API_KEY"
 
     try:
@@ -68,9 +108,25 @@ def _process_entry(entry: Dict, products: list, brand: Dict) -> Tuple[bool, str]
             workspace_ids=brand.get("workspace_ids", ""),
         )
         _log_and_continue(entry, product, caption, "posted", "")
+        record_article_check(
+            SETTINGS.sqlite_path,
+            brand.get("brand_name", ""),
+            entry.get("title", ""),
+            entry.get("url", ""),
+            "posted",
+            "",
+        )
         return True, "posted"
     except Exception as exc:
         _log_and_continue(entry, product, caption, "failed", str(exc))
+        record_article_check(
+            SETTINGS.sqlite_path,
+            brand.get("brand_name", ""),
+            entry.get("title", ""),
+            entry.get("url", ""),
+            "failed",
+            str(exc),
+        )
         return False, str(exc)
 
 
@@ -109,6 +165,14 @@ def run_daily() -> None:
 
         posted = False
         for entry in entries:
+            if article_seen(
+                SETTINGS.sqlite_path,
+                brand_name,
+                entry.get("title", ""),
+                entry.get("url", ""),
+            ):
+                print("[pipeline] Skipping already-checked article.")
+                continue
             print("[pipeline] Processing next entry...")
             posted, _ = _process_entry(entry, products, brand)
             if posted:

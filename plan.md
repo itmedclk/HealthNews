@@ -191,6 +191,37 @@ credentials in Replit Secrets (e.g., `GOOGLE_SHEETS_CREDENTIALS_JSON`, `GOOGLE_S
 **Brand topics table**:
 - `brands` table stores derived topics (categories/subcategories/tags) per brand.
 
+Schema (SQLite):
+```
+brands(
+  id INTEGER PRIMARY KEY,
+  brand_name TEXT UNIQUE,
+  topics TEXT,
+  product_categories TEXT,
+  product_subcategories TEXT,
+  product_tags TEXT,
+  updated_at TEXT
+)
+```
+
+**Article history table**:
+- `article_history` tracks which articles were checked per brand so we can skip
+  already-processed entries before running safety filters.
+
+Schema (SQLite):
+```
+article_history(
+  id INTEGER PRIMARY KEY,
+  brand_name TEXT,
+  article_title TEXT,
+  article_url TEXT,
+  checked_at TEXT,
+  status TEXT,
+  reason TEXT,
+  UNIQUE(brand_name, article_title, article_url)
+)
+```
+
 ---
 
 ## 12) Scheduling in Replit
@@ -225,5 +256,3 @@ credentials in Replit Secrets (e.g., `GOOGLE_SHEETS_CREDENTIALS_JSON`, `GOOGLE_S
 
 ---
 
-## 15) Next Step
-If this plan looks good, ask me to **toggle to Act mode**, and I will generate the full Replit-ready codebase (starting with `requirements.txt`).

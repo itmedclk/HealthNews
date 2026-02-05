@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+- Added article history table and skip logic to avoid re-checking already processed articles.
+- Added multi-brand support via Brands.csv, per-brand RSS overrides, and Postly target/workspace routing.
+- Persisted brand topic metadata (derived from product categories/tags) into SQLite.
+
 ## 2026-02-04
 - Switched AP Herb catalog ingestion to CSV (`Product_Info.csv`).
 - Added Dropbox API image lookup using per-product `image_path`.

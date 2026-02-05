@@ -49,6 +49,20 @@ def init_db(sqlite_path: str) -> None:
             )
             """
         )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS article_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                brand_name TEXT,
+                article_title TEXT,
+                article_url TEXT,
+                checked_at TEXT,
+                status TEXT,
+                reason TEXT,
+                UNIQUE(brand_name, article_title, article_url)
+            )
+            """
+        )
         conn.commit()
 
 
@@ -81,6 +95,65 @@ def upsert_brand_topics(sqlite_path: str, payload: Dict) -> None:
                 payload.get("product_subcategories"),
                 payload.get("product_tags"),
                 payload.get("updated_at"),
+            ),
+        )
+        conn.commit()
+
+
+def article_seen(sqlite_path: str, brand_name: str, article_title: str, article_url: str) -> bool:
+    """Return True if the article was already checked for this brand."""
+    if not brand_name or not article_title:
+        return False
+    _ensure_dir(sqlite_path)
+    with sqlite3.connect(sqlite_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT 1 FROM article_history
+            WHERE brand_name = ? AND article_title = ? AND article_url = ?
+            LIMIT 1
+            """,
+            (brand_name, article_title, article_url),
+        )
+        return cursor.fetchone() is not None
+
+
+def record_article_check(
+    sqlite_path: str,
+    brand_name: str,
+    article_title: str,
+    article_url: str,
+    status: str,
+    reason: str,
+) -> None:
+    """Insert/update the article history record for this brand."""
+    if not brand_name or not article_title:
+        return
+    _ensure_dir(sqlite_path)
+    with sqlite3.connect(sqlite_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO article_history (
+                brand_name,
+                article_title,
+                article_url,
+                checked_at,
+                status,
+                reason
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(brand_name, article_title, article_url) DO UPDATE SET
+                checked_at=excluded.checked_at,
+                status=excluded.status,
+                reason=excluded.reason
+            """,
+            (
+                brand_name,
+                article_title,
+                article_url,
+                datetime.utcnow().isoformat(),
+                status,
+                reason,
             ),
         )
         conn.commit()
