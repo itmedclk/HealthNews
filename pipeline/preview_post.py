@@ -6,10 +6,12 @@ from pipeline.safety_filter import safety_filter
 from services.catalog_service import load_brands_from_csv, load_products_from_csv, parse_brand_rss_sources
 from services.rss_ingest import ingest_rss
 from utils.config import SETTINGS
+from utils.monitoring import init_sentry
 
 
 def main() -> None:
     """Preview the next post by printing article, product, caption, and image URL."""
+    init_sentry(environment="development")
     brands = load_brands_from_csv(SETTINGS.brands_csv_path)
     if not brands:
         print("[preview] No brands found in Brands.csv.")

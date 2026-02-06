@@ -10,3 +10,4 @@ openai
 playwright
 python-dateutil
 requests
+sentry-sdk==2.21.0

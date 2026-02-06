@@ -1,7 +1,11 @@
 # Changelog
 
-## Unreleased
+## 2026-02-06
+- Added commitment to include a 'What I changed and why' summary after each completion.
+- Added Sentry monitoring support (SENTRY_DSN, utils/monitoring.py, and entry-point initialization).
 - Added verbose step-by-step logging in test_post_immediate for easier debugging.
+
+## 2026-02-05
 - Renamed services/apherb_catalog.py to services/catalog_service.py for multi-brand support.
 - Added DROPBOX_IMAGE_PREFIX setting to prepend a shared Dropbox folder root before image_path values.
 - Added Dropbox refresh token force-refresh and automatic retry on expired_access_token responses.

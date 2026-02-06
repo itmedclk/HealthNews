@@ -22,6 +22,7 @@ from utils.logger import (
     record_article_check,
     upsert_brand_topics,
 )
+from utils.monitoring import init_sentry
 from pipeline.matcher import select_best_product
 from pipeline.safety_filter import safety_filter
 
@@ -277,6 +278,7 @@ def _schedule_for_brand(
 # Daily pipeline runner: ingest feeds, load catalog, and post first valid item.
 def run_daily() -> None:
     """Main daily workflow: ingest RSS, scrape catalog, and post the first valid article per brand."""
+    init_sentry(environment="production")
     print("[pipeline] Initializing database...")
     init_db(SETTINGS.sqlite_path)
     brands = load_brands_from_csv(SETTINGS.brands_csv_path)

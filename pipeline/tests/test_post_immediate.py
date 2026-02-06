@@ -8,10 +8,12 @@ from services.postly_client import create_post
 from services.rss_ingest import ingest_rss
 from utils.config import SETTINGS
 from utils.logger import init_db, log_posted_post
+from utils.monitoring import init_sentry
 
 
 def main() -> None:
     """Immediately schedule a post for the first valid article/product for the first brand."""
+    init_sentry(environment="development")
     print("[test] Initializing database...")
     init_db(SETTINGS.sqlite_path)
     brands = load_brands_from_csv(SETTINGS.brands_csv_path)

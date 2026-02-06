@@ -163,6 +163,9 @@ SQLite tables:
 Optional Google Sheets logging:
 - Controlled by `GOOGLE_SHEETS_CREDENTIALS_JSON` + `GOOGLE_SHEET_ID`.
 
+Optional error monitoring:
+- `SENTRY_DSN` enables Sentry error reporting via `utils/monitoring.py`.
+
 ---
 
 ## 12) Configuration & Secrets
@@ -196,6 +199,7 @@ Optional:
 - **AI optionality**: AI rerank and AI safety are controlled by API availability + config flags.
 - **Resilience**: failures are logged and pipeline continues to the next entry.
 - **Token refresh**: Dropbox access tokens auto-refresh and retry once on expiry.
+
 
 
 
