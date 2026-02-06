@@ -1,6 +1,6 @@
 from pprint import pprint
 
-from services.apherb_catalog import load_products_from_csv
+from services.catalog_service import load_products_from_csv
 from utils.config import SETTINGS
 
 

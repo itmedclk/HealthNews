@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- Added verbose step-by-step logging in test_post_immediate for easier debugging.
+- Renamed services/apherb_catalog.py to services/catalog_service.py for multi-brand support.
+- Added DROPBOX_IMAGE_PREFIX setting to prepend a shared Dropbox folder root before image_path values.
 - Added Dropbox refresh token force-refresh and automatic retry on expired_access_token responses.
 - Updated matcher scoring to use weighted keyword fields with noise-token filtering and optional AI rerank.
 - Added test_avoid_repeat_product.py for repeat-product checks and clear_post_log helper.

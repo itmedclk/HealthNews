@@ -33,7 +33,7 @@ If any step fails (safety, relevance, missing config), the pipeline **skips to t
 /project-root
 ├── main.py                # Daily pipeline runner
 ├── services/              # External integrations
-│   ├── apherb_catalog.py  # Catalog loading + Dropbox images
+│   ├── catalog_service.py  # Catalog loading + Dropbox images
 │   ├── postly_client.py   # Postly API client
 │   └── rss_ingest.py      # RSS fetching + normalization
 ├── pipeline/              # Pipeline logic
@@ -75,6 +75,7 @@ Key fields used in matching/captioning:
 - Image files are sorted and rotated using `data/image_rotation.json`.
 - A shared link is created and converted to a direct-download URL.
 - **Token refresh**: access tokens are refreshed via `DROPBOX_REFRESH_TOKEN` and the API call is retried once on `expired_access_token`.
+- **Prefix support**: set `DROPBOX_IMAGE_PREFIX` (e.g. `/healthnews`) to prepend a common folder root before each `image_path`.
 
 Fallback behavior:
 - Missing Dropbox config → `image_url` is blank and the entry fails later.
@@ -179,6 +180,7 @@ Optional:
 - `NOVITA_API_KEY`, `NOVITA_MODEL`, `NOVITA_BASE_URL`
 - `RELEVANCE_THRESHOLD`, `PRODUCT_MATCH_THRESHOLD`
 - `AVOID_REPEAT_PRODUCT`, `AVOID_REPEAT_PRODUCT_COUNT`
+- `DROPBOX_IMAGE_PREFIX`
 
 ---
 
@@ -194,6 +196,10 @@ Optional:
 - **AI optionality**: AI rerank and AI safety are controlled by API availability + config flags.
 - **Resilience**: failures are logged and pipeline continues to the next entry.
 - **Token refresh**: Dropbox access tokens auto-refresh and retry once on expiry.
+
+
+
+
 
 
 

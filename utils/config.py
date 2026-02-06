@@ -37,7 +37,7 @@ class Settings:
     schedule_hour: int = int(os.getenv("SCHEDULE_HOUR", "5"))
     schedule_minute: int = int(os.getenv("SCHEDULE_MINUTE", "0"))
     ap_herb_catalog_url: str = "https://www.apherb.com/goods_list"
-    catalog_cache_path: str = "data/apherb_catalog.json"
+    catalog_cache_path: str = "data/catalog_cache.json"
     catalog_cache_ttl_days: int = int(os.getenv("CATALOG_CACHE_TTL_DAYS", "7"))
     sqlite_path: str = os.getenv("SQLITE_PATH", "data/logs.sqlite")
     google_sheet_id: str = os.getenv("GOOGLE_SHEET_ID", "")
@@ -56,6 +56,7 @@ class Settings:
     )
     product_info_csv_path: str = os.getenv("PRODUCT_INFO_CSV_PATH", "info/Product_Info.csv")
     brands_csv_path: str = os.getenv("BRANDS_CSV_PATH", "info/Brands.csv")
+    dropbox_image_prefix: str = os.getenv("DROPBOX_IMAGE_PREFIX", "")
     dropbox_access_token: str = os.getenv("DROPBOX_ACCESS_TOKEN", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     novita_base_url: str = os.getenv("NOVITA_BASE_URL", "https://api.novita.ai/openai")

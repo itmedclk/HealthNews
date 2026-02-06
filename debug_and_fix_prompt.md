@@ -28,7 +28,7 @@ Use this file as a **standard prompt** whenever errors occur in this project. Th
 main.py
 config.py
 rss_ingest.py
-apherb_catalog.py
+catalog_service.py
 safety_filter.py
 matcher.py
 caption_writer.py

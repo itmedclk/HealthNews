@@ -116,6 +116,12 @@ def _resolve_dropbox_image(folder_path: str) -> Dict[str, str]:
         return {"image_url": "", "status": "missing_dropbox_token"}
     if not folder_path:
         return {"image_url": "", "status": "missing_image_path"}
+    prefix = (SETTINGS.dropbox_image_prefix or "").strip()
+    if prefix:
+        normalized_prefix = "/" + prefix.strip("/")
+        normalized_folder = "/" + folder_path.strip("/")
+        if not normalized_folder.startswith(normalized_prefix + "/"):
+            folder_path = f"{normalized_prefix}{normalized_folder}"
     entries = _list_dropbox_files(folder_path)
     if not entries:
         return {"image_url": "", "status": "no_files_found"}

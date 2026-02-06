@@ -15,7 +15,7 @@ This is a Python automation pipeline that:
 - `caption_writer.py` - Generates AI captions using OpenAI/Novita
 - `safety_filter.py` - Filters out inappropriate content
 - `postly_client.py` - Handles posting to Postly API
-- `apherb_catalog.py` - Manages product catalog data
+- `catalog_service.py` - Manages product catalog data
 - `logger.py` - Logging to SQLite and Google Sheets
 - `preview_post.py` - Preview functionality
 

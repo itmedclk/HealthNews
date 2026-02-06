@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 from datetime import datetime, timezone
 
 from pipeline.caption_writer import generate_caption
-from services.apherb_catalog import derive_brand_topics, load_brands_from_csv, load_products_from_csv, parse_brand_rss_sources
+from services.catalog_service import derive_brand_topics, load_brands_from_csv, load_products_from_csv, parse_brand_rss_sources
 from services.rss_ingest import ingest_rss
 from services.postly_client import create_post
 from utils.config import SETTINGS
