@@ -8,10 +8,10 @@ import requests
 _token_cache = {"token": None, "expires_at": 0}
 
 
-def get_dropbox_access_token() -> Optional[str]:
+def get_dropbox_access_token(force_refresh: bool = False) -> Optional[str]:
     """Fetch and cache a Dropbox access token using refresh token credentials."""
     cached = _token_cache.get("token")
-    if cached and time.time() < _token_cache.get("expires_at", 0):
+    if not force_refresh and cached and time.time() < _token_cache.get("expires_at", 0):
         return cached
 
     refresh_token = os.getenv("DROPBOX_REFRESH_TOKEN", "")

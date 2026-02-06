@@ -19,12 +19,18 @@ def _is_image_file(name: str) -> bool:
 
 def _list_dropbox_files(folder_path: str) -> List[Dict]:
     """List files in a Dropbox folder using the API."""
-    access_token = SETTINGS.dropbox_access_token or get_dropbox_access_token()
+    access_token = get_dropbox_access_token()
     if not access_token:
         return []
     url = "https://api.dropboxapi.com/2/files/list_folder"
     headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
     response = requests.post(url, headers=headers, json={"path": folder_path}, timeout=30)
+    if response.status_code == 401 and "expired_access_token" in response.text:
+        access_token = get_dropbox_access_token(force_refresh=True)
+        if not access_token:
+            raise RuntimeError("Dropbox refresh failed while retrying list_folder")
+        headers["Authorization"] = f"Bearer {access_token}"
+        response = requests.post(url, headers=headers, json={"path": folder_path}, timeout=30)
     if response.status_code >= 400:
         raise RuntimeError(f"Dropbox list_folder failed ({response.status_code}): {response.text}")
     return response.json().get("entries", [])
@@ -32,16 +38,38 @@ def _list_dropbox_files(folder_path: str) -> List[Dict]:
 
 def _create_dropbox_shared_link(path: str) -> Optional[str]:
     """Create a shared link for a Dropbox file and return a direct-download URL."""
-    access_token = SETTINGS.dropbox_access_token or get_dropbox_access_token()
+    access_token = get_dropbox_access_token()
     if not access_token:
         return None
     url = "https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings"
     headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
     response = requests.post(url, headers=headers, json={"path": path}, timeout=30)
+    if response.status_code == 401 and "expired_access_token" in response.text:
+        access_token = get_dropbox_access_token(force_refresh=True)
+        if not access_token:
+            raise RuntimeError("Dropbox refresh failed while retrying create_shared_link")
+        headers["Authorization"] = f"Bearer {access_token}"
+        response = requests.post(url, headers=headers, json={"path": path}, timeout=30)
     if response.status_code == 409:
         # If link exists already, fetch it instead.
         list_url = "https://api.dropboxapi.com/2/sharing/list_shared_links"
-        list_response = requests.post(list_url, headers=headers, json={"path": path, "direct_only": True}, timeout=30)
+        list_response = requests.post(
+            list_url,
+            headers=headers,
+            json={"path": path, "direct_only": True},
+            timeout=30,
+        )
+        if list_response.status_code == 401 and "expired_access_token" in list_response.text:
+            access_token = get_dropbox_access_token(force_refresh=True)
+            if not access_token:
+                raise RuntimeError("Dropbox refresh failed while retrying list_shared_links")
+            headers["Authorization"] = f"Bearer {access_token}"
+            list_response = requests.post(
+                list_url,
+                headers=headers,
+                json={"path": path, "direct_only": True},
+                timeout=30,
+            )
         if list_response.status_code >= 400:
             raise RuntimeError(
                 f"Dropbox list_shared_links failed ({list_response.status_code}): {list_response.text}"
@@ -84,7 +112,7 @@ def _save_rotation_state(state: Dict[str, int]) -> None:
 
 def _resolve_dropbox_image(folder_path: str) -> Dict[str, str]:
     """Pick the next image in rotation and return URL + status info."""
-    if not (SETTINGS.dropbox_access_token or get_dropbox_access_token()):
+    if not get_dropbox_access_token():
         return {"image_url": "", "status": "missing_dropbox_token"}
     if not folder_path:
         return {"image_url": "", "status": "missing_image_path"}

@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Added Dropbox refresh token force-refresh and automatic retry on expired_access_token responses.
 - Updated matcher scoring to use weighted keyword fields with noise-token filtering and optional AI rerank.
 - Added test_avoid_repeat_product.py for repeat-product checks and clear_post_log helper.
 - Added AVOID_REPEAT_PRODUCT_COUNT setting to configure the product repeat window.

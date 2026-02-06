@@ -1,306 +1,201 @@
-# Automated Health News → Instagram (AP Herb) — Project Plan
+# Automated Health News → Instagram (AP Herb) — Design & Implementation Guide
 
-## 1) Goal, Deliverables, Success Criteria, Constraints
-**Goal**: Build a Python 3.11+ Replit app that automatically posts daily health news to Instagram at **5:00 AM local time**, using **brand-specific** product catalogs and **Postly.ai**.
+## 1) Purpose & Outcomes
+**Goal**: Automatically publish daily health news posts (image + caption) at **5:00 AM local time**, using brand-specific product catalogs and Postly.ai scheduling.
 
-**Deliverables**
-- `plan.md` (this document)
-- Replit-ready Python project (to be generated after plan approval)
-- Daily automation pipeline with logging
+**Primary outcomes**
+- One scheduled/posted Instagram entry per brand per day
+- Brand-specific product match, image, and hashtags
+- Safety screening and logging for every article checked
 
-**Success Criteria**
-- Posts appear daily at 5:00 AM with image + caption for each brand
-- Uses brand-specific product data and associated topics
-- Enforces exclusions and safety rules
-- Captions are 100–150 words, English, educational tone
-- Logs all outcomes (posted/skipped/failed)
-
-**Constraints**
-- Use OpenAI for AI tasks
-- Post via `POST https://openapi.postly.ai/v1/posts`
-- All secrets stored in Replit Secrets
+**Success criteria**
+- Posts appear daily at 5:00 AM (or immediately if the job runs after 5 AM)
+- Captions follow length and safety rules (100–150 words, educational tone)
+- All outcomes logged (posted/scheduled/skipped/failed)
 
 ---
 
-## 2) High-Level Architecture (Daily Flow)
-1. **RSS Ingest** → pull multiple health feeds, dedupe, newest-first
-2. **Safety Filter** → hard-block excluded topics + AI safety classifier
-3. **Caption Writer** → AI rewrite to IG format (100–150 words)
-4. **Brand Catalogs** → load per-brand CSV + Dropbox image lookup
-5. **Product Matcher** → score products + optional AI ranking
-6. **Postly Publish** → schedule post for 5:00 AM per brand
-7. **Logging** → write SQLite log entries + persist brand topics
+## 2) System Overview (End-to-End Flow)
+1. **Load brands** from `Brands.csv` and their product catalogs.
+2. **Fetch RSS feeds** (brand-specific overrides or global defaults).
+3. **Filter articles** (hard-block + AI safety + AI relevance).
+4. **Match products** (keyword scoring + optional AI rerank).
+5. **Generate caption** (NovitaAI/OpenAI-compatible endpoint).
+6. **Schedule post** in Postly at local 5:00 AM.
+7. **Log** all results to SQLite + Google Sheets (optional).
 
-If an item fails safety or matching, **skip to next item**.
+If any step fails (safety, relevance, missing config), the pipeline **skips to the next entry**.
 
 ---
 
-## 3) Recommended Replit File Structure
+## 3) Project Structure
 ```
 /project-root
-├── main.py                # Daily execution entry point
-├── services/              # External integrations + catalog loading
-│   ├── apherb_catalog.py
-│   ├── postly_client.py
-│   └── rss_ingest.py
-├── pipeline/              # Pipeline logic + AI filters
-│   ├── caption_writer.py
-│   ├── matcher.py
-│   ├── preview_post.py
-│   ├── safety_filter.py
-│   └── tests/
-│       ├── test_apherb_scraper.py
-│       ├── test_avoid_repeat_product.py
-│       └── test_post_immediate.py
-├── utils/                 # Shared helpers + settings
-│   ├── config.py
-│   ├── dropbox_auth.py
-│   └── logger.py
+├── main.py                # Daily pipeline runner
+├── services/              # External integrations
+│   ├── apherb_catalog.py  # Catalog loading + Dropbox images
+│   ├── postly_client.py   # Postly API client
+│   └── rss_ingest.py      # RSS fetching + normalization
+├── pipeline/              # Pipeline logic
+│   ├── caption_writer.py  # Caption generation rules
+│   ├── matcher.py         # Product matching + AI rerank
+│   ├── preview_post.py    # Preview next post without posting
+│   └── safety_filter.py   # Safety + relevance checks
+├── utils/                 # Shared helpers
+│   ├── config.py          # Environment settings
+│   ├── dropbox_auth.py    # Dropbox token refresh helper
+│   └── logger.py          # SQLite + Sheets logging
 └── requirements.txt
 ```
 
-Note on package files:
-- Python 3.3+ supports implicit namespace packages, so __init__.py files are not strictly required.
-- If you plan to use static analysis tools, IDE autocomplete, or package-level imports,
-  add empty __init__.py files in services/, pipeline/, and utils/ for clarity.
-
 ---
 
-## 4) RSS Sources (English, Reputable)
-- https://rss.nytimes.com/services/xml/rss/nyt/Health.xml
-- https://www.medicalnewstoday.com/rss
-- https://www.sciencedaily.com/rss/health_medicine.xml
-- https://www.cdc.gov/media/rss.xml
-- https://www.who.int/feeds/entity/mediacentre/news/en/rss.xml
-- https://www.nih.gov/feed
-- https://www.health.com/feed
+## 4) Brand & Product Data Design
+**Brands source**: `info/Brands.csv`
 
-Rules:
-- Deduplicate by title + URL
-- Process newest first
-- Continue until a valid post is produced
-
----
-
-## 5) Brand Catalog Ingestion
-**Source of truth**: `Brands.csv` + per-brand product CSVs
-
-`Brands.csv` columns:
+Required columns:
 - `brand_name`
+- `target_platforms` (Postly channels)
+- `workspace_ids` (fallback to `POSTLY_WORKSPACE_IDS`)
+- `tags` (pipe-delimited hashtags)
+
+Optional columns:
 - `product_info_csv_path`
-- `target_platforms` (required; Postly target platforms or channel IDs)
-- `workspace_ids` (required; Postly workspace IDs; fallback to POSTLY_WORKSPACE_IDS)
-- `rss_sources` (optional pipe-delimited override list)
-- `tags` (required; pipe-delimited hashtags appended to captions)
+- `rss_sources` (pipe-delimited override list)
 
-Each brand points to its product catalog (defaulting to `Product_Info.csv` when blank).
+**Product catalog**: CSV per brand (defaults to `info/Product_Info.csv`).
 
-**Extract fields**:
-- product_name
-- product_url
-- description
-- key_ingredients
-- category / sub_category
-- tags
-- image_path (Dropbox folder per product)
-
-**Image handling**:
-- Use Dropbox API to list files inside `image_path`
-- Pick the first image file and create a shared link
-
-**Failure fallback**:
-- If CSV is empty, skip posting and log failure
-- If Dropbox image lookup fails, log missing image URL
+Key fields used in matching/captioning:
+- `product_name`, `product_url`, `description`, `key_ingredients`, `main_benefit`, `category`, `sub_category`, `tags`, `image_path`
 
 ---
 
-## 6) Safety Filter (AI-Assisted Hybrid)
-**Hard block (code)**:
-- pregnancy
-- children
-- cancer
-- diabetes
-- mental health
-- sexual health
+## 5) Dropbox Image Resolution
+- Image folders are listed via the Dropbox API using `image_path`.
+- Image files are sorted and rotated using `data/image_rotation.json`.
+- A shared link is created and converted to a direct-download URL.
+- **Token refresh**: access tokens are refreshed via `DROPBOX_REFRESH_TOKEN` and the API call is retried once on `expired_access_token`.
 
-**AI classifier** (OpenAI):
-Prompt the model to label:
-- `safe` or `unsafe`
-- reasons (medical advice? treatment claims? promotional?)
-
-**Decision**:
-- If hard-block matched → reject
-- Else if AI says `unsafe` → reject
-- Else → pass
+Fallback behavior:
+- Missing Dropbox config → `image_url` is blank and the entry fails later.
+- Empty folder → `no_files_found` status recorded.
 
 ---
 
-## 7) Product Matching (AI-Assisted Hybrid)
-**Baseline scoring**:
-- Extract keywords from article (noise tokens removed)
-- Apply weighted scoring by product fields (product_name, category, main_benefit, ingredients, description)
-- Normalize by entry length to avoid long-article bias
+## 6) RSS Ingestion Logic
+Modules: `services/rss_ingest.py`
 
-**AI ranking (optional)**:
-- Provide top candidates + article
-- Ask AI to select **exactly one** best match or “no good match”
-
-**Decision**:
-- If no product meets threshold → skip article
-- Else select top product
+Steps:
+1. Fetch all RSS entries.
+2. Normalize fields: `title`, `summary`, `article_url`, `published`.
+3. Dedupe by `(title, url)` key.
+4. Sort newest-first.
 
 ---
 
-## 8) Caption Rules (OpenAI)
-**Required structure**:
-1) Hook (1 sentence)
-2) Summary (2–3 sentences)
-3) Why it matters (1 sentence)
-4) Product tie-in (1–2 sentences, educational only)
-5) Source line: `Source: <article URL>` (no date)
-6) Product link
-7) 10 hashtags (include brand + product hashtags)
+## 7) Safety & Relevance Checks
+Module: `pipeline/safety_filter.py`
 
-**Constraints**:
+**Hard-block topics** (code-level): pregnancy, children, cancer, diabetes, mental health, sexual health.
+
+**AI checks** (NovitaAI/OpenAI-compatible):
+- Hard-block classifier
+- Product relevance classifier (must exceed `RELEVANCE_THRESHOLD`)
+
+If any check fails, the entry is skipped and logged.
+
+---
+
+## 8) Product Matching Logic
+Module: `pipeline/matcher.py`
+
+**Keyword scoring**:
+- Tokenize article title + summary (noise tokens removed).
+- Weighted fields: `product_name` (3.0), `main_benefit` (2.5), `category` (2.0), `ingredients` (2.0), `description` (1.0).
+- Normalize by entry length.
+
+**Optional AI rerank**:
+- Top-N candidates are reranked by NovitaAI.
+
+If the score is below `PRODUCT_MATCH_THRESHOLD`, the entry is skipped.
+
+---
+
+## 9) Caption Generation Rules
+Module: `pipeline/caption_writer.py`
+
+Caption structure (enforced in prompt):
+1. News summary + why it matters
+2. Educational product tie-in (no sales language)
+3. `Learn more:` + product URL
+4. `Source:` + article URL
+5. Exactly 10 hashtags (brand + product tags)
+
+Safety enforcement:
 - 100–150 words
-- English only
-- No medical advice or cure/treatment claims
+- Educational tone only
+- No medical advice or cure claims
 
 ---
 
-## 9) Product Image Handling
-1. Resolve product image via Dropbox folder path (`image_path`)
-2. Rotate images per product (sorted filenames) using `data/image_rotation.json`
-3. Pick the next image in rotation and generate a shared link
-4. Attach shared link via Postly API
+## 10) Scheduling & Daily Execution
+Module: `main.py`
+
+Scheduling logic per brand:
+- If a post was already **posted today**, schedule the next for **tomorrow at 5:00 AM** (if not already scheduled).
+- If no post today:
+  - Schedule for **today at 5:00 AM** (or immediately if the job runs after 5 AM).
+
+The pipeline checks each RSS entry until a valid post is scheduled or all entries fail.
 
 ---
 
-## 10) Postly.ai Publishing
-**Endpoint**: `POST https://openapi.postly.ai/v1/posts`
+## 11) Logging & Persistence
+Module: `utils/logger.py`
 
-**Auth**:
-- `X-API-KEY: <api-key>`
+SQLite tables:
+- `logs`: all outcomes (posted/skipped/failed)
+- `article_history`: skips already-checked articles
+- `post_log`: scheduled/posted tracking (used for repeat-product and schedule logic)
+- `brands`: derived brand topics
 
-**Payload essentials**:
-- `text`: caption
-- `media`: [{ url, type }]
-- `target_platforms`: per-brand channels or `instagram`
-- `one_off_schedule`: date + time + timezone (5:00 AM local)
-
-We will align the payload with Postly docs and your provided cURL example.
+Optional Google Sheets logging:
+- Controlled by `GOOGLE_SHEETS_CREDENTIALS_JSON` + `GOOGLE_SHEET_ID`.
 
 ---
 
-## 11) Logging & Tracking (SQLite + Google Sheets)
-Each run logs to **SQLite** and also appends a row to **Google Sheets**:
-- timestamp
-- rss source
-- article title + URL
-- product name + URL + image
-- caption text
-- status (posted/skipped/failed)
-- failure reason (if any)
+## 12) Configuration & Secrets
+All settings are loaded from environment variables in `utils/config.py`.
 
-**Google Sheets**: use a service account + `gspread` (or Google Sheets API) and store
-credentials in Replit Secrets (e.g., `GOOGLE_SHEETS_CREDENTIALS_JSON`, `GOOGLE_SHEET_ID`).
-
-**Brand topics table**:
-- `brands` table stores derived topics (categories/subcategories/tags) per brand.
-
-Schema (SQLite):
-```
-brands(
-  id INTEGER PRIMARY KEY,
-  brand_name TEXT UNIQUE,
-  topics TEXT,
-  product_categories TEXT,
-  product_subcategories TEXT,
-  product_tags TEXT,
-  updated_at TEXT
-)
-```
-
-**Article history table**:
-- `article_history` tracks which articles were checked per brand so we can skip
-  already-processed entries before running safety filters.
-
-Schema (SQLite):
-```
-article_history(
-  id INTEGER PRIMARY KEY,
-  brand_name TEXT,
-  article_title TEXT,
-  article_url TEXT,
-  checked_at TEXT,
-  status TEXT,
-  reason TEXT,
-  UNIQUE(brand_name, article_title, article_url)
-)
-```
-
-**Post log table**:
-- `post_log` tracks scheduled and posted posts per brand.
-
-Schema (SQLite):
-```
-post_log(
-  id INTEGER PRIMARY KEY,
-  brand_name TEXT,
-  product_name TEXT,
-  article_title TEXT,
-  article_url TEXT,
-  image_url TEXT,
-  caption TEXT,
-  scheduled_time TEXT,
-  posted_time TEXT,
-  status TEXT
-)
-```
-
----
-
-## 12) Scheduling in Replit
-**Option A (recommended)**:
-- expose `/run_daily` endpoint
-- trigger via external cron at 5:00 AM
-
-**Option B**:
-- internal scheduler loop (less reliable)
-
-**Runtime scheduling behavior**:
-- On startup, for each brand:
-  - If no posted post today: schedule immediately if past 5 AM; otherwise schedule at 5 AM.
-  - If posted post today: ensure a post is scheduled for tomorrow at 5 AM.
-
----
-
-## 13) Secrets (Replit Secrets)
-- `OPENAI_API_KEY`
+Required for full automation:
 - `POSTLY_API_KEY`
-- `POSTLY_BASE_URL` (optional, default to `https://openapi.postly.ai`)
-- `POSTLY_WORKSPACE_IDS` (fallback for brand workspace IDs)
-- `AVOID_REPEAT_PRODUCT` (default true; skip posts that match the last N products)
-- `AVOID_REPEAT_PRODUCT_COUNT` (default 2; number of recent products to avoid)
-- `DROPBOX_ACCESS_TOKEN`
 - `DROPBOX_REFRESH_TOKEN`
 - `DROPBOX_CLIENT_ID`
 - `DROPBOX_CLIENT_SECRET`
-- `PRODUCT_INFO_CSV_PATH`
-- `BRANDS_CSV_PATH`
+
+Optional:
+- `POSTLY_WORKSPACE_IDS`
+- `BRANDS_CSV_PATH`, `PRODUCT_INFO_CSV_PATH`
+- `NOVITA_API_KEY`, `NOVITA_MODEL`, `NOVITA_BASE_URL`
+- `RELEVANCE_THRESHOLD`, `PRODUCT_MATCH_THRESHOLD`
+- `AVOID_REPEAT_PRODUCT`, `AVOID_REPEAT_PRODUCT_COUNT`
 
 ---
 
-## 14) Implementation Order (Student-Friendly)
-1. AP Herb CSV loader + Dropbox images
-2. RSS ingestion
-3. Safety filter (AI-assisted)
-4. AI caption writer
-5. Product matcher (AI-assisted)
-6. Postly publishing
-7. Logging + schedule trigger
+## 13) Operational Tools
+- **main.py**: full daily run (scheduled or on-demand)
+- **pipeline/preview_post.py**: prints the next valid post without scheduling
 
 ---
+
+## 14) Key Design Decisions (Logic Summary)
+- **Brand-first pipeline**: each brand is processed independently.
+- **Safety-first flow**: safety checks occur before any product matching or captioning.
+- **AI optionality**: AI rerank and AI safety are controlled by API availability + config flags.
+- **Resilience**: failures are logged and pipeline continues to the next entry.
+- **Token refresh**: Dropbox access tokens auto-refresh and retry once on expiry.
+
+
 
 
 
